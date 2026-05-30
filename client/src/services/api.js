@@ -80,8 +80,8 @@ export const users = {
 export const getReports = (status) =>
   api.get('/reports', status ? { params: { status } } : {});
 
-export const reviewReport = (id, decision, notes) =>
-  api.put(`/reports/${id}`, { decision, notes });
+export const reviewReport = (id, status, notes) =>
+  api.put(`/reports/${id}`, { status, notes });
 
 // ── Upload ─────────────────────────────────────────────
 export const upload = {

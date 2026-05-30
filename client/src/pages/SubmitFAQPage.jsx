@@ -123,7 +123,7 @@ const SubmitFAQPage = () => {
     try {
       const res = await faqs.search(q);
       // Filter out near-identical (same slug or very similar question)
-      const similar = ((res.data.data ?? [])).filter((f) => {
+      const similar = ((res.data ?? [])).filter((f) => {
         const sim = f.question?.toLowerCase();
         const current = q.toLowerCase();
         // Show if more than 40% word overlap
@@ -170,7 +170,7 @@ const SubmitFAQPage = () => {
     if (Object.keys(errs).length) { setErrors(errs); return; }
     setSubmitting(true);
     try {
-      const res = await faqs.create(form);
+      await faqs.create(form);
       toast.success('Your question is submitted for review!');
       setTimeout(() => navigate('/faqs'), 2000);
     } catch (err) {
@@ -322,7 +322,7 @@ const SubmitFAQPage = () => {
           <div>
             <div className="flex items-center justify-between mb-1.5">
               <label className="text-sm font-semibold text-[var(--text)]">Tags <span className="text-[var(--text-muted)] font-normal">(up to {MAX_TAGS})</span></label>
-              <span className="text-xs text-[var(--text-muted)]">{tags.length}/{MAX_TAGS}</span>
+              <span className="text-xs text-[var(--text-muted)]">{form.tags.length}/{MAX_TAGS}</span>
             </div>
             <TagInput
               tags={form.tags}

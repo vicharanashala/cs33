@@ -1,4 +1,5 @@
 const mongoose = require('mongoose');
+const mongoosePaginate = require('mongoose-paginate-v2');
 
 const ReportSchema = new mongoose.Schema(
   {
@@ -39,5 +40,7 @@ const ReportSchema = new mongoose.Schema(
     timestamps: { createdAt: 'createdAt', updatedAt: 'updatedAt' },
   }
 );
+
+ReportSchema.plugin(mongoosePaginate);
 
 module.exports = mongoose.model('Report', ReportSchema);

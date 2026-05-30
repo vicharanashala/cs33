@@ -288,7 +288,7 @@ const FAQListPage = () => {
         ) : (
           <div className="space-y-3">
             {faqList.map((faq) => (
-              <Link key={faq._id} to={`/faqs/${faq._id}`} className="faq-card">
+              <Link key={faq._id} to={`/faqs/${faq?._id || ""}`} className="faq-card">
                 <div className="flex items-start gap-3 sm:gap-4">
                   {/* Vote count — desktop only */}
                   <div className="hidden sm:flex flex-col items-center min-w-[40px] text-[var(--text-muted)]">

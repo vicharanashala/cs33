@@ -15,7 +15,7 @@ function api {
     }
 }
 
-$email    = "testuser$(Get-Random 9999)@example.com"
+$email    = "testuser$(Get-Date -Format 'yyyyMMddHHmmss')$(Get-Random 9999)@example.com"
 $password = "TestPass123!"
 $modEmail = "mod@test.com"
 $modPass  = "password123"

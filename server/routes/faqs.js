@@ -58,7 +58,8 @@ router.delete('/:id',         isAuthenticated, ObjectIdParam('id'),   remove);
 
 // ── Votes ─────────────────────────────────────────────────────────────────────
 router.put('/:id/vote',       isAuthenticated, voteFAQ);
-router.put('/:id/answers/:aid/vote', isAuthenticated, voteAnswer);
+router.post('/:id/vote',      isAuthenticated, voteFAQ);
+router.put('/:id/answers/:answerId/vote', isAuthenticated, voteAnswer);
 
 // ── Moderation (mod/admin only) ───────────────────────────────────────────────
 router.put('/:id/pin',        isAuthenticated, isModerator, ObjectIdParam('id'),  togglePin);
@@ -75,25 +76,25 @@ router.post(
 );
 
 router.put(
-  '/:id/answers/:aid',
+  '/:id/answers/:answerId',
   isAuthenticated,
   updateAnswerRules,
   updateAnswer
 );
 
 router.delete(
-  '/:id/answers/:aid',
+  '/:id/answers/:answerId',
   isAuthenticated,
   ObjectIdParam('id'),
-  ObjectIdParam('aid'),
+  ObjectIdParam('answerId'),
   deleteAnswer
 );
 
 router.put(
-  '/:id/answers/:aid/accept',
+  '/:id/answers/:answerId/accept',
   isAuthenticated,
   ObjectIdParam('id'),
-  ObjectIdParam('aid'),
+  ObjectIdParam('answerId'),
   acceptAnswer
 );
 
@@ -105,7 +106,7 @@ router.post(
   addComment
 );
 router.delete(
-  '/:id/comments/:cid',
+  '/:id/comments/:commentId',
   isAuthenticated,
   ObjectIdParam('id'),
   deleteComment

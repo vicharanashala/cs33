@@ -1,5 +1,4 @@
 const crypto = require('crypto');
-const fs = require('fs');
 const User = require('../models/User');
 const AppError = require('../utils/AppError');
 const { sendEmail } = require('../utils/sendEmail');
@@ -7,9 +6,7 @@ const { sendEmail } = require('../utils/sendEmail');
 const register = async (req, res, next) => {
   try {
     const { name, email, password } = req.body;
-    fs.appendFileSync('C:/Users/cheru/reg-trace.log', `REQ email="${email}" lower="${email?.toLowerCase()}"\n`);
     const existing = await User.findOne({ email: email.toLowerCase() });
-    fs.appendFileSync('C:/Users/cheru/reg-trace.log', `DB existing=${existing ? existing.email + ' id=' + existing._id : 'NONE'}\n`);
     if (existing) return next(new AppError('Email already registered', 400));
 
     const emailVerifyToken = crypto.randomBytes(32).toString('hex');
@@ -158,7 +155,7 @@ const resetPassword = async (req, res, next) => {
 
     if (!user) return next(new AppError('Invalid or expired reset token', 400));
 
-    user.passwordHash = password;
+    user.password = password;
     user.resetPasswordToken = undefined;
     user.resetPasswordExpire = undefined;
     await user.save();

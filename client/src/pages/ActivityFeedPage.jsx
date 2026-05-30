@@ -9,7 +9,7 @@ const SuggestedUsers = ({ onFollow }) => {
   const [list, setList] = useState([]);
   useEffect(() => {
     users.getLeaderboard()
-      .then((res) => setList(res.data.data?.slice(0, 5) || []))
+      .then((res) => setList(res.data?.slice(0, 5) || []))
       .catch(() => {});
   }, []);
 
@@ -75,7 +75,7 @@ const ActivityFeedPage = () => {
     try {
       const res = await users.getFeed();
       if (!isMounted) return;
-      const data = (res.data.data ?? []);
+      const data = Array.isArray(res.data?.data) ? res.data.data : [];
       // Each item: { _id, question, author, createdAt, votes, answerCount }
       if (append) {
         setItems((prev) => {
@@ -159,7 +159,7 @@ const ActivityFeedPage = () => {
                           {faq.createdAt ? format(new Date(faq.createdAt), { locale: 'en' }) : ''}
                         </span>
                       </div>
-                      <Link to={`/faqs/${faq._id}`}
+                      <Link to={`/faqs/${faq?._id || ""}`}
                         className="block text-sm font-semibold text-[var(--text-h)] hover:text-[var(--primary)] transition-colors line-clamp-2">
                         {faq.question}
                       </Link>

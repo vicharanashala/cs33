@@ -32,9 +32,11 @@ const getReports = async (req, res, next) => {
           if (targetModel && mongoose.Types.ObjectId.isValid(report.targetId)) {
             const target = await mongoose.model(targetModel).findById(report.targetId).select('question');
             obj.target = target;
+            obj.faqId = report.targetType === 'faq' ? report.targetId : null;
           }
         } catch {
           obj.target = null;
+          obj.faqId = null;
         }
         return obj;
       })

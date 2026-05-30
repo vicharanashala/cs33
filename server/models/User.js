@@ -14,8 +14,6 @@ const userSchema = new mongoose.Schema(
     },
     username: {
       type: String,
-      unique: true,
-      sparse: true,
       lowercase: true,
       trim: true,
       maxlength: [30, 'Username cannot exceed 30 characters'],
@@ -68,6 +66,14 @@ const userSchema = new mongoose.Schema(
         ref: 'User',
       },
     ],
+    followerCount: {
+      type: Number,
+      default: 0,
+    },
+    followingCount: {
+      type: Number,
+      default: 0,
+    },
     savedFAQs: [
       {
         type: mongoose.Schema.Types.ObjectId,
@@ -122,8 +128,7 @@ const userSchema = new mongoose.Schema(
 // ── Plugin ─────────────────────────────────────────────────────────────────────
 userSchema.plugin(mongoosePaginate);
 
-// ── Index ──────────────────────────────────────────────────────────────────────
-userSchema.index({ email: 1 });
+
 
 // ── Pre-save: hash password ────────────────────────────────────────────────────
 // Accepts `password` (plain) OR `passwordHash` (already hashed).

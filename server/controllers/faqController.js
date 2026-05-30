@@ -12,9 +12,6 @@ const DOMPurify = createDOMPurify(window);
 const { sendEmail } = require('../utils/sendEmail');
 const { newAnswerEmail } = require('../utils/emailTemplates');
 
-// io is attached to req.io by server.js middleware — import server to emit directly
-const { io } = require('../server');
-
 // In-memory trending cache — 10-minute TTL
 let trendingCache = { data: null, fetchedAt: 0 };
 const TRENDING_TTL_MS = 10 * 60 * 1000;
@@ -38,7 +35,10 @@ const getAll = async (req, res, next) => {
 
     const query = {};
 
-    if (!req.user || req.user.role === 'user') {
+    // Admins/mods can filter by any status; regular users only see approved
+    if (req.query.status) {
+      query.status = req.query.status;
+    } else if (!req.user || req.user.role === 'user') {
       query.status = 'approved';
     }
 
@@ -114,7 +114,7 @@ const getAll = async (req, res, next) => {
 
 const getOne = async (req, res, next) => {
   try {
-    const { idOrSlug } = req.params;
+    const { id: idOrSlug } = req.params;
 
     if (
       typeof idOrSlug !== 'string' ||
@@ -124,16 +124,19 @@ const getOne = async (req, res, next) => {
       return next(new AppError('Invalid FAQ identifier', 400));
     }
 
-    const query = {};
+    // Build an $or query: match by ObjectId OR by slug (whichever fits)
+    const conditions = [];
     if (mongoose.Types.ObjectId.isValid(idOrSlug)) {
-      query._id = idOrSlug;
+      conditions.push({ _id: idOrSlug });
     }
+    // Only match by slug if it doesn't look like an ObjectId (24 hex chars)
     if (/^[a-zA-Z0-9_-]{1,200}$/.test(idOrSlug)) {
-      query.slug = idOrSlug;
+      conditions.push({ slug: idOrSlug });
     }
-    if (Object.keys(query).length === 0) {
+    if (conditions.length === 0) {
       return next(new AppError('Invalid FAQ identifier', 400));
     }
+    const query = conditions.length === 1 ? conditions[0] : { $or: conditions };
     if (!req.user || req.user.role === 'user') {
       query.status = 'approved';
     }
@@ -147,7 +150,8 @@ const getOne = async (req, res, next) => {
 
     if (!faq) return next(new AppError('FAQ not found', 404));
 
-    await FAQ.findByIdAndUpdate(faq._id, { $inc: { views: 1 } });
+    // Fire-and-forget — don't let view increment failure affect the response
+    FAQ.findByIdAndUpdate(faq._id, { $inc: { views: 1 } }).catch(() => {});
 
     return res.json({ success: true, data: faq });
   } catch (err) {
@@ -288,14 +292,19 @@ const toggleWiki = async (req, res, next) => {
 const voteFAQ = async (req, res, next) => {
   try {
     const { id } = req.params;
-    const { vote } = req.body;
+    const voteNum = Number(req.body.vote);
 
-    if (vote !== 1 && vote !== -1) {
+    if (![1, -1].includes(voteNum)) {
       return next(new AppError('Vote must be 1 or -1', 400));
     }
 
     const faq = await FAQ.findById(id);
     if (!faq) return next(new AppError('FAQ not found', 404));
+
+    // Prevent self-voting
+    if (faq.author.equals(req.user._id)) {
+      return next(new AppError('Cannot vote on your own FAQ', 403));
+    }
 
     const existingIndex = faq.voters.findIndex(
       (v) => v.user.equals(req.user._id)
@@ -305,24 +314,20 @@ const voteFAQ = async (req, res, next) => {
 
     if (existingIndex !== -1) {
       const existingVote = faq.voters[existingIndex].vote;
-      if (existingVote === vote) {
+      if (existingVote === voteNum) {
         faq.voters.splice(existingIndex, 1);
-        voteDelta = -vote;
+        voteDelta = -voteNum;
       } else {
-        faq.voters[existingIndex].vote = vote;
-        voteDelta = vote * 2;
+        faq.voters[existingIndex].vote = voteNum;
+        voteDelta = voteNum * 2;
       }
     } else {
-      faq.voters.push({ user: req.user._id, vote });
-      voteDelta = vote;
+      faq.voters.push({ user: req.user._id, vote: voteNum });
+      voteDelta = voteNum;
     }
 
     faq.votes += voteDelta;
     await faq.save();
-
-    if (faq.author.equals(req.user._id)) {
-      return res.json({ success: true, data: { votes: faq.votes } });
-    }
 
     const repDelta = voteDelta === 1 ? 10 : voteDelta === -1 ? -2 : 0;
     if (repDelta !== 0) {
@@ -330,7 +335,7 @@ const voteFAQ = async (req, res, next) => {
       await awardBadges(faq.author);
     }
 
-    io.to(`faq:${id}`).emit('faq:voted', { faqId: id, votes: faq.votes });
+    req.io.to(`faq:${id}`).emit('faq:voted', { faqId: id, votes: faq.votes });
 
     return res.json({ success: true, data: { votes: faq.votes } });
   } catch (err) {
@@ -341,9 +346,9 @@ const voteFAQ = async (req, res, next) => {
 const voteAnswer = async (req, res, next) => {
   try {
     const { id, answerId } = req.params;
-    const { vote } = req.body;
+    const voteNum = Number(req.body.vote);
 
-    if (vote !== 1 && vote !== -1) {
+    if (![1, -1].includes(voteNum)) {
       return next(new AppError('Vote must be 1 or -1', 400));
     }
 
@@ -353,21 +358,26 @@ const voteAnswer = async (req, res, next) => {
     const answer = faq.answers.id(answerId);
     if (!answer) return next(new AppError('Answer not found', 404));
 
+    // Prevent self-voting
+    if (answer.author.equals(req.user._id)) {
+      return next(new AppError('Cannot vote on your own answer', 403));
+    }
+
     const existingIndex = answer.voters.findIndex((v) => v.user.equals(req.user._id));
     let voteDelta = 0;
 
     if (existingIndex !== -1) {
       const existingVote = answer.voters[existingIndex].vote;
-      if (existingVote === vote) {
+      if (existingVote === voteNum) {
         answer.voters.splice(existingIndex, 1);
-        voteDelta = -vote;
+        voteDelta = -voteNum;
       } else {
-        answer.voters[existingIndex].vote = vote;
-        voteDelta = vote * 2;
+        answer.voters[existingIndex].vote = voteNum;
+        voteDelta = voteNum * 2;
       }
     } else {
-      answer.voters.push({ user: req.user._id, vote });
-      voteDelta = vote;
+      answer.voters.push({ user: req.user._id, vote: voteNum });
+      voteDelta = voteNum;
     }
 
     answer.votes += voteDelta;
@@ -381,7 +391,7 @@ const voteAnswer = async (req, res, next) => {
       }
     }
 
-    io.to(`faq:${id}`).emit('faq:answerVoted', { faqId: id, answerId, votes: answer.votes });
+    req.io.to(`faq:${id}`).emit('faq:answerVoted', { faqId: id, answerId, votes: answer.votes });
 
     return res.json({ success: true, data: { votes: answer.votes } });
   } catch (err) {
@@ -393,6 +403,7 @@ const addAnswer = async (req, res, next) => {
   try {
     const { id } = req.params;
     const { body } = req.body;
+    console.log('[addAnswer] id:', id, '| body:', JSON.stringify(body));
 
     if (!body) return next(new AppError('Answer body is required', 400));
 
@@ -402,8 +413,11 @@ const addAnswer = async (req, res, next) => {
     faq.answers.push({ body, author: req.user._id });
     await faq.save();
 
-    const newAnswer = faq.answers[faq.answers.length - 1];
-    await newAnswer.populate('author', 'name avatar reputation');
+    // Re-fetch with populate to properly hydrate subdocument author
+    const populatedFaq = await FAQ.findById(id)
+      .populate('author', 'name avatar reputation')
+      .populate('answers.author', 'name avatar reputation');
+    const newAnswer = populatedFaq.answers.id(faq.answers[faq.answers.length - 1]._id);
 
     // Award FAQ author +5 reputation (only if answerer is not the author)
     if (!faq.author.equals(req.user._id)) {
@@ -414,7 +428,7 @@ const addAnswer = async (req, res, next) => {
       }
     }
 
-    io.to(`faq:${id}`).emit('faq:newAnswer', { faqId: id, answer: newAnswer });
+    req.io.to(`faq:${id}`).emit('faq:newAnswer', { faqId: id, answer: newAnswer });
 
     // In-app notification to FAQ author
     if (!faq.author.equals(req.user._id)) {
@@ -424,7 +438,7 @@ const addAnswer = async (req, res, next) => {
         type: 'answer',
         faqId: faq._id,
         message: `${req.user.name} answered your FAQ: "${faq.question}"`,
-        io,
+        io: req.io,
       });
     }
 
@@ -473,9 +487,11 @@ const updateAnswer = async (req, res, next) => {
     answer.body = body;
     await faq.save();
 
-    await answer.populate('author', 'name avatar reputation');
+    const updatedAnswer = await FAQ.findById(id)
+      .populate('answers.author', 'name avatar reputation')
+      .then(f => f.answers.id(answerId));
 
-    return res.json({ success: true, data: answer });
+    return res.json({ success: true, data: updatedAnswer });
   } catch (err) {
     return next(err);
   }
@@ -536,7 +552,7 @@ const acceptAnswer = async (req, res, next) => {
       }
     }
 
-    io.to(`faq:${id}`).emit('faq:answerAccepted', { faqId: id, answerId });
+    req.io.to(`faq:${id}`).emit('faq:answerAccepted', { faqId: id, answerId });
 
     return res.json({ success: true, data: { answerId, isAccepted: true } });
   } catch (err) {
@@ -577,7 +593,7 @@ const addComment = async (req, res, next) => {
         type: 'comment',
         faqId: faq._id,
         message: `${req.user.name} commented on your ${answerId ? 'answer' : 'FAQ'}: "${faq.question}"`,
-        io,
+        io: req.io,
       });
     }
 
@@ -666,7 +682,7 @@ const updateStatus = async (req, res, next) => {
     const { id } = req.params;
     const { status, reason } = req.body;
 
-    const valid = ['approved', 'rejected', 'closed'];
+    const valid = ['approved', 'rejected', 'flagged', 'pending'];
     if (!valid.includes(status)) {
       return next(new AppError(`Invalid status. Must be one of: ${valid.join(', ')}`, 400));
     }
@@ -679,7 +695,7 @@ const updateStatus = async (req, res, next) => {
     if (status === 'approved') faq.reviewedAt = new Date();
     await faq.save();
 
-    if (io) io.to(`faq:${id}`).emit('faq:statusChanged', { id, status });
+    if (req.io) req.io.to(`faq:${id}`).emit('faq:statusChanged', { id, status });
 
     return res.json({ success: true, data: { _id: faq._id, status } });
   } catch (err) {

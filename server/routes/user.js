@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { isAuthenticated } = require('../middleware/auth');
+const { isAuthenticated, optionalAuth } = require('../middleware/auth');
 const {
   updateProfileRules,
   changePasswordRules,
@@ -20,7 +20,8 @@ const {
 } = require('../controllers/userController');
 
 // Public read
-router.get('/:idOrUsername', getProfile);
+router.get('/leaderboard', (req, res, next) => { getLeaderboard(req, res, next); });
+router.get('/:idOrUsername', optionalAuth, getProfile);
 
 // Auth-gated profile & password
 router.put('/:id/profile',   isAuthenticated, updateProfileRules, updateProfile);
@@ -36,8 +37,8 @@ router.get('/saved',          isAuthenticated, getSavedFAQs);
 
 // Activity & content
 router.get('/feed/activity',             isAuthenticated, getActivityFeed);
+router.get('/leaderboard', (req, res, next) => { console.log('[ROUTE] /leaderboard hit'); getLeaderboard(req, res, next); });
 router.get('/:idOrUsername/activity',    getUserActivity);
 router.get('/:idOrUsername/answers',     getUserAnswers);
-router.get('/leaderboard',               getLeaderboard);
 
 module.exports = router;

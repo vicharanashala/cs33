@@ -1,4 +1,3 @@
-import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { Toaster } from 'react-hot-toast';
 import App from './App.jsx';
@@ -6,10 +5,8 @@ import ErrorBoundary from './components/common/ErrorBoundary';
 import './index.css';
 
 createRoot(document.getElementById('root')).render(
-  <StrictMode>
-    <ErrorBoundary>
-      <Toaster position="top-right" />
-      <App />
-    </ErrorBoundary>
-  </StrictMode>,
+  <ErrorBoundary>
+    <Toaster position="top-right" />
+    <App />
+  </ErrorBoundary>,
 );

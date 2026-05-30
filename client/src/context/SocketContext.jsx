@@ -33,11 +33,15 @@ export const SocketProvider = ({ children }) => {
 
     const sock = io(import.meta.env.VITE_SOCKET_URL || 'http://localhost:5000', {
       auth: { token },
-      transports: ['websocket'],
+      transports: ['websocket', 'polling'],
+      withCredentials: true,
     });
 
     sock.on('connect', () => setConnected(true));
     sock.on('disconnect', () => setConnected(false));
+    sock.on('connect_error', (err) => {
+      console.warn('[SocketContext] connection error:', err.message);
+    });
 
     setSocket(sock);
 

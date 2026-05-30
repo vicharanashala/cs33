@@ -8,9 +8,9 @@ import Spinner from '../components/common/Spinner';
 import EmptyState from '../components/common/EmptyState';
 
 const MEDAL = {
-  0: { icon: '🥇', bg: 'bg-yellow-50',  border: 'border-yellow-300', text: 'text-yellow-700' },
-  1: { icon: '🥈', bg: 'bg-[var(--surface)]',    border: 'border-[var(--border)]',   text: 'text-[var(--text-muted)]' },
-  2: { icon: '🥉', bg: 'bg-amber-50',   border: 'border-amber-200',  text: 'text-amber-700' },
+  0: { icon: '🥇', bg: 'bg-[var(--card-bg)]', border: 'border-[var(--primary)]', text: 'text-[var(--primary)]' },
+  1: { icon: '🥈', bg: 'bg-[var(--surface)]', border: 'border-[var(--border)]',  text: 'text-[var(--text-muted)]'  },
+  2: { icon: '🥉', bg: 'bg-[var(--card-bg)]', border: 'border-[var(--accent)]',  text: 'text-[var(--accent)]'      },
 };
 
 const LeaderboardPage = () => {
@@ -72,7 +72,7 @@ const LeaderboardPage = () => {
                     </div>
                   </Link>
                   <div className="text-right flex-shrink-0">
-                    <p className="text-2xl font-bold text-yellow-600">{u.reputation?.toLocaleString()}</p>
+                    <p className="text-2xl font-bold text-[var(--primary)]">{u.reputation?.toLocaleString()}</p>
                     <p className="text-xs text-[var(--text-muted)]">{u.faqCount || 0} FAQs</p>
                   </div>
                 </div>
@@ -87,7 +87,7 @@ const LeaderboardPage = () => {
                 return (
                   <Link key={u._id} to={`/profile/${u._id}`}
                     className={`flex items-center gap-4 px-5 py-3.5 hover:bg-[var(--surface)] transition-colors ${isMe ? 'bg-[var(--primary)]/10' : ''}`}>
-                    <span className="w-7 text-center font-mono text-sm font-semibold text-[var(--text-muted)] flex-shrink-0">
+                    <span className="w-7 text-center font-mono text-sm font-semibold text-[var(--text)] flex-shrink-0">
                       #{rank}
                     </span>
                     <img
@@ -109,7 +109,7 @@ const LeaderboardPage = () => {
                       )}
                     </div>
                     <div className="text-right flex-shrink-0">
-                      <p className="text-sm font-bold text-[var(--text)]">{u.reputation?.toLocaleString()}</p>
+                      <p className="text-sm font-bold text-[var(--text-h)]">{u.reputation?.toLocaleString()}</p>
                       <p className="text-[11px] text-[var(--text-muted)]">{u.faqCount || 0} FAQs</p>
                     </div>
                   </Link>

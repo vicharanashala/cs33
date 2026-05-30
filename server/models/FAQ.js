@@ -174,7 +174,8 @@ FAQSchema.index({ 'answers.author': 1 });
 // ── Virtual: hot score for trending ───────────────────────────────────────────
 FAQSchema.virtual('hotScore').get(function () {
   const hoursOld = (Date.now() - this.createdAt) / 3600000;
-  return (this.votes * 3 + this.answers.length * 2 + this.views * 0.1) /
+  const answersCount = Array.isArray(this.answers) ? this.answers.length : 0;
+  return ((this.votes || 0) * 3 + answersCount * 2 + (this.views || 0) * 0.1) /
     Math.pow(hoursOld + 2, 1.5);
 });
 

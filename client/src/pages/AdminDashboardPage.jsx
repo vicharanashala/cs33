@@ -104,7 +104,7 @@ const AdminDashboardPage = () => {
   const loadStats = useCallback(async () => {
     try {
       const res = await admin.getStats();
-      setStats(res.data.data);
+      setStats(res.data);
     } catch {
       toast.error('Failed to load stats');
     } finally {
@@ -117,7 +117,7 @@ const AdminDashboardPage = () => {
     setUsersLoading(true);
     try {
       const res = await admin.getUsers({ page, limit: 15, search });
-      setUsers(res.data.data);
+      setUsers(res.data);
       setUserTotal(res.data.pagination?.totalItems || 0);
       setUsersPage(page);
     } catch {
@@ -154,7 +154,7 @@ const AdminDashboardPage = () => {
   const handleRoleChange = async (userId, newRole) => {
     try {
       const res = await admin.updateRole(userId, newRole);
-      setUsers((u) => u.map((x) => x._id === userId ? res.data.data : x));
+      setUsers((u) => u.map((x) => x._id === userId ? res.data : x));
       toast.success('Role updated');
     } catch (err) {
       toast.error(err.message || 'Failed to update role');
@@ -165,7 +165,7 @@ const AdminDashboardPage = () => {
   const handleSuspend = async (userId) => {
     try {
       const res = await admin.suspendUser(userId);
-      setUsers((u) => u.map((x) => x._id === userId ? { ...x, isSuspended: res.data.data.isSuspended } : x));
+      setUsers((u) => u.map((x) => x._id === userId ? { ...x, isSuspended: res.data.isSuspended } : x));
       toast.success(res.data.message);
     } catch (err) {
       toast.error(err.message || 'Failed');
@@ -330,7 +330,7 @@ const AdminDashboardPage = () => {
                       className="p-1.5 text-[var(--text-muted)] hover:bg-[var(--surface)] rounded-lg" title="Close">
                       <XCircle size={15} />
                     </button>
-                    <Link to={`/faqs/${faq._id}`} target="_blank"
+                    <Link to={`/faqs/${faq?._id || ""}`} target="_blank"
                       className="p-1.5 text-[var(--text-muted)] hover:text-[var(--text-muted)] hover:bg-[var(--surface)] rounded-lg">
                       ↗
                     </Link>

@@ -43,8 +43,8 @@ const HomePage = () => {
         ]);
 
         if (!isMounted) return;
-        const statsPayload = statsRes?.data?.data ?? {};
-        const trendingItems = Array.isArray(trendingRes?.data?.data) ? trendingRes.data.data : [];
+        const statsPayload = statsRes?.data ?? {};
+        const trendingItems = Array.isArray(trendingRes?.data) ? trendingRes.data : [];
         const pinnedItems = Array.isArray(pinnedRes?.data?.data)
           ? pinnedRes.data.data.filter((f) => f.isPinned)
           : [];
@@ -114,7 +114,7 @@ const HomePage = () => {
             </h2>
             <div className="space-y-3">
               {pinned.map((faq) => (
-                <Link key={faq._id} to={`/faqs/${faq._id}`}
+                <Link key={faq._id} to={`/faqs/${faq?._id || ""}`}
                   className="block bg-[var(--card-bg)] border border-[var(--border)] rounded-lg p-4 hover:shadow-md transition-shadow">
                   <div className="flex items-start justify-between gap-3">
                     <div className="flex-1 min-w-0">
@@ -158,7 +158,7 @@ const HomePage = () => {
                 // Map score to 1-5 stars
                 const stars = score >= 200 ? 5 : score >= 80 ? 4 : score >= 30 ? 3 : score >= 10 ? 2 : 1;
                 return (
-                  <Link key={faq._id} to={`/faqs/${faq._id}`}
+                  <Link key={faq._id} to={`/faqs/${faq?._id || ""}`}
                     className="w-64 flex-shrink-0 bg-[var(--card-bg)] border border-[var(--border)] rounded-xl p-4 hover:shadow-lg hover:border-[var(--primary)] transition-all flex flex-col justify-between">
                     {/* Rank */}
                     <div className="flex items-start justify-between gap-2 mb-2">

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { format } from 'timeago.js';
 import {
@@ -28,6 +28,7 @@ const ProfilePage = () => {
   const { user: currentUser } = useAuth();
 
   const [tab, setTab] = useState('questions');
+  const [followState, setFollowState] = useState(null); // null=loading, true=following, false=not following
 
   // Fetch profile + leaderboard in parallel
   const { data: profileData, loading, error } = useAsync(
@@ -40,6 +41,13 @@ const ProfilePage = () => {
 
   const profile     = profileData?.profile ?? null;
   const leaderboard = profileData?.leaderboard ?? [];
+
+  // Keep followState in sync with profile data
+  useEffect(() => {
+    if (profile?.isFollowing !== undefined) {
+      setFollowState(!!profile.isFollowing);
+    }
+  }, [profile?.isFollowing]);
 
   useDocumentMeta({
     title: profile ? `${profile.name}${profile.role === 'admin' ? ' (Admin)' : profile.role === 'moderator' ? ' (Mod)' : ''}` : 'Profile',
@@ -65,31 +73,25 @@ const ProfilePage = () => {
 
   const handleFollow = async () => {
     if (!currentUser) { toast.error('Please log in to follow'); return; }
-    let isMounted = true;
+    if (isOwn) return;
+    if (followState === null) return; // still loading
+    const wasFollowing = followState;
+    // Optimistic update
+    setFollowState(!wasFollowing);
     try {
-      const isFollowing = profile.following?.includes(currentUser.id);
-      if (isFollowing) {
+      if (wasFollowing) {
         await users.unfollow(id);
-        // Optimistically update the cached profile data
-        if (isMounted && profileData) {
-          profileData.profile = {
-            ...profile,
-            following: profile.following.filter((f) => f !== currentUser.id),
-            followerCount: Math.max(0, (profile.followerCount || 1) - 1),
-          };
-        }
       } else {
         await users.follow(id);
-        if (isMounted && profileData) {
-          profileData.profile = {
-            ...profile,
-            following: [...(profile.following || []), currentUser.id],
-            followerCount: (profile.followerCount || 0) + 1,
-          };
-        }
+      }
+      // Re-fetch profile to sync server state (isFollowing, followerCount)
+      const { data: newData } = await users.getProfile(id);
+      if (newData?.data) {
+        setFollowState(!!newData.data.isFollowing);
       }
     } catch (err) {
-      if (!isMounted) return;
+      // Revert on error
+      setFollowState(wasFollowing);
       toast.error(err.response?.data?.error || err.message || 'Action failed');
     }
   };
@@ -116,8 +118,9 @@ const ProfilePage = () => {
       actionLabel="Go back" onAction={() => window.history.back()} />
   );
 
-  const isOwn     = currentUser && (currentUser.id === id || currentUser._id === id);
-  const isFollowing = currentUser && profile.following?.includes(currentUser.id);
+  const isOwn       = currentUser && (currentUser.id === id || currentUser._id === id);
+  const isFollowing = followState === true; // true only when confirmed following
+  const followLoading = followState === null && !isOwn && !!currentUser; // null on initial load
 
   const statCards = [
     { label: 'Questions Asked',    value: profile.questionCount || 0, icon: <MessageSquare size={16} /> },
@@ -151,7 +154,7 @@ const ProfilePage = () => {
                 )}
                 {/* Leaderboard rank badge */}
                 {inTop10 && (
-                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 text-xs rounded-full bg-yellow-50 text-yellow-700 border border-yellow-200 font-medium">
+                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 text-xs rounded-full bg-[var(--card-bg)] text-[var(--primary)] border border-[var(--primary)] font-medium">
                     <Trophy size={11} className={MEDAL_COLORS[rank]} /> #{rank + 1} in Top 10
                   </span>
                 )}
@@ -169,6 +172,10 @@ const ProfilePage = () => {
                   <strong className="text-[var(--text)]">{profile.followerCount || 0}</strong> followers
                 </span>
                 <span className="flex items-center gap-1.5">
+                  <User size={14} />
+                  <strong className="text-[var(--text)]">{profile.followingCount || 0}</strong> following
+                </span>
+                <span className="flex items-center gap-1.5">
                   <Calendar size={14} />
                   Joined {format(new Date(profile.createdAt), { locale: 'en' })}
                 </span>
@@ -179,13 +186,16 @@ const ProfilePage = () => {
             {!isOwn && currentUser && (
               <button
                 onClick={handleFollow}
+                disabled={followLoading}
                 className={`flex-shrink-0 px-5 py-2 rounded-full text-sm font-semibold transition-all ${
-                  isFollowing
-                    ? 'border-2 border-[var(--border)] text-[var(--text-muted)] hover:border-[var(--error)] hover:text-[var(--error)]'
-                    : 'bg-[var(--primary)] text-white hover:opacity-90 shadow-sm'
+                  followLoading
+                    ? 'opacity-60 cursor-not-allowed'
+                    : isFollowing
+                      ? 'border-2 border-[var(--border)] text-[var(--text-muted)] hover:border-[var(--error)] hover:text-[var(--error)]'
+                      : 'bg-[var(--primary)] text-white hover:opacity-90 shadow-sm'
                 }`}
               >
-                {isFollowing ? 'Following' : '+ Follow'}
+                {followLoading ? '...' : isFollowing ? 'Following' : '+ Follow'}
               </button>
             )}
           </div>
@@ -244,7 +254,7 @@ const ProfilePage = () => {
               <div className="space-y-3">
                 {tabData.length === 0 && <p className="text-[var(--text-muted)] text-center py-10 text-sm">No questions yet</p>}
                 {tabData.map((faq) => (
-                  <Link key={faq._id} to={`/faqs/${faq._id}`}
+                  <Link key={faq._id} to={`/faqs/${faq?._id || ""}`}
                     className="flex items-center justify-between gap-4 p-4 border border-[var(--border)] rounded-xl hover:border-[var(--primary)] hover:bg-[var(--primary)]/10/30 transition-all group">
                     <div className="min-w-0">
                       <p className="font-medium text-[var(--text-h)] group-hover:text-[var(--primary)] transition-colors line-clamp-1">{faq.question}</p>
@@ -270,7 +280,7 @@ const ProfilePage = () => {
               <div className="space-y-3">
                 {tabData.length === 0 && <p className="text-[var(--text-muted)] text-center py-10 text-sm">No answers yet</p>}
                 {tabData.map((ans) => (
-                  <Link key={ans._id} to={`/faqs/${ans.faq?._id || ans.faq}`}
+                  <Link key={ans._id} to={`/faqs/${ans.faq?._id || ""}`}
                     className="block p-4 border border-[var(--border)] rounded-xl hover:border-[var(--primary)] hover:bg-[var(--primary)]/10/30 transition-all group">
                     <p className="font-medium text-[var(--text-h)] group-hover:text-[var(--primary)] transition-colors line-clamp-2">
                       {ans.faq?.question || 'FAQ #' + (ans.faq?._id || ans.faq)}
@@ -293,15 +303,12 @@ const ProfilePage = () => {
               <div className="space-y-0">
                 {tabData.length === 0 && <p className="text-[var(--text-muted)] text-center py-10 text-sm">No activity yet</p>}
                 {tabData.map((event, i) => (
-                  <div key={i} className="flex items-start gap-3 py-3 border-b border-[var(--border)] last:border-0">
+                  <div key={event._id || event.id || `act-${i}`} className="flex items-start gap-3 py-3 border-b border-[var(--border)] last:border-0">
                     <span className="text-xl flex-shrink-0 mt-0.5">{event.icon || '📌'}</span>
                     <div className="min-w-0 flex-1">
                       <p className="text-sm text-[var(--text)]">
                         <span className="font-medium text-[var(--text-h)]">{profile.name}</span>
                         {' '}{event.text}
-                        {event.faq && (
-                          <> — <Link to={`/faqs/${event.faq._id}`} className="text-[var(--primary)] hover:underline">{event.faq.question}</Link></>
-                        )}
                       </p>
                       <p className="text-xs text-[var(--text-muted)] mt-0.5">{format(new Date(event.createdAt), { locale: 'en' })}</p>
                     </div>

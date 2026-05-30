@@ -1,11 +1,11 @@
 const express = require('express');
 const router = express.Router();
-const { isModerator } = require('../middleware/auth');
+const { isAuthenticated, isModerator } = require('../middleware/auth');
 const FAQ = require('../models/FAQ');
 const AppError = require('../utils/AppError');
 
 // PUT /api/mod/faqs/:id/status — moderators and admins can approve/reject
-router.put('/faqs/:id/status', isModerator, async (req, res, next) => {
+router.put('/faqs/:id/status', isAuthenticated, isModerator, async (req, res, next) => {
   try {
     const { id } = req.params;
     const { status } = req.body;

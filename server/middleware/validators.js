@@ -11,11 +11,6 @@ const validate = (req, _res, next) => {
     message: e.msg,
   }));
 
-  const fs = require('fs');
-  fs.appendFileSync('C:/Users/cheru/validate-trace.log',
-    new Date().toISOString() + ' ' + req.path + ' body=' + JSON.stringify(req.body) +
-    ' errors=' + JSON.stringify(formatted) + '\n');
-
   return next(new AppError('Validation failed', 422, formatted));
 };
 
@@ -166,7 +161,7 @@ const addAnswerRules = [
 
 const updateAnswerRules = [
   ObjectIdParam('id'),
-  ObjectIdParam('aid'),
+  ObjectIdParam('answerId'),
   body('body')
     .trim()
     .isLength({ min: 30, max: 5000 })

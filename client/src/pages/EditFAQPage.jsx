@@ -136,7 +136,7 @@ const EditFAQPage = () => {
       try {
         const res = await faqs.getOne(id);
         if (!isMounted) return;
-        const faq = res.data.data;
+        const faq = res.data;
 
         const isOwner = faq.author?._id === user?.id || faq.author === user?.id;
         const isMod = user?.role === 'moderator' || user?.role === 'admin';

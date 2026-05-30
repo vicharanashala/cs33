@@ -1,6 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
-import { io } from 'socket.io-client';
 import ReactMarkdown from 'react-markdown';
 import { format } from 'timeago.js';
 import {
@@ -11,9 +10,8 @@ import { faqs, users } from '../services/api';
 import ShareButton from '../components/faq/ShareButton';
 import useDocumentMeta from '../hooks/useDocumentMeta';
 import { useAuth } from '../context/AuthContext';
+import { useSocket } from '../context/SocketContext';
 import toast from 'react-hot-toast';
-
-const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || 'http://localhost:5000';
 
 const REPORT_REASONS = [
   'Spam or advertising',
@@ -117,7 +115,7 @@ const AnswerCard = ({ answer, faqAuthorId, currentUser, onVote, onAccept, onDele
         />
 
         <div className="flex-1 min-w-0">
-          <ReactMarkdown className="prose prose-sm max-w-none text-[var(--text)] mb-4">{answer.body}</ReactMarkdown>
+          <div className="prose prose-sm max-w-none text-[var(--text)] mb-4"><ReactMarkdown>{answer.body}</ReactMarkdown></div>
 
           <div className="flex items-center justify-between flex-wrap gap-2">
             <div className="flex items-center gap-2">
@@ -208,7 +206,7 @@ const FAQDetailPage = () => {
   const { id } = useParams();
   const { user } = useAuth();
   const navigate = useNavigate();
-  const socketRef = useRef(null);
+  const { socket } = useSocket();
 
   const [faq, setFaq] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -221,68 +219,63 @@ const FAQDetailPage = () => {
 
   const [answerBody, setAnswerBody] = useState('');
   const [submittingAnswer, setSubmittingAnswer] = useState(false);
+  const lastAddedAnswerId = useRef(null);
+  const isSubmittingRef = useRef(false);
 
-  // Socket setup
+  // Socket setup — reuse shared context socket
   useEffect(() => {
-    if (!id) return;
+    if (!id || !socket) return;
 
-    const socket = io(SOCKET_URL, {
-      auth: { token: localStorage.getItem('token') },
-      transports: ['websocket', 'polling'],
-    });
-    socketRef.current = socket;
+    socket.emit('faq:join', id);
 
-    socket.on('connect', () => {
-      socket.emit('faq:join', id);
-    });
+    let isMounted = true;
 
     socket.on('faq:voted', ({ votes }) => {
+      if (!isMounted) return;
       setFaq((prev) => prev ? { ...prev, votes } : prev);
     });
 
     socket.on('faq:newAnswer', ({ answer }) => {
+      if (!isMounted) return;
+      if (answer._id === lastAddedAnswerId.current) {
+        lastAddedAnswerId.current = null;
+        return;
+      }
       setFaq((prev) => {
         if (!prev) return prev;
-        // Avoid duplicates
         if (prev.answers.some((a) => a._id === answer._id)) return prev;
         return { ...prev, answers: [...prev.answers, answer] };
       });
-      toast.success('New answer posted!');
+      // Only toast for other users' answers — our own answer shows "Answer posted!" already
+      const isOwnAnswer = answer.author?._id === user?.id || answer.author === user?.id;
+      if (!isOwnAnswer) toast.success('New answer posted!');
     });
 
     socket.on('faq:answerVoted', ({ answerId, votes }) => {
+      if (!isMounted) return;
       setFaq((prev) => {
         if (!prev) return prev;
-        return {
-          ...prev,
-          answers: prev.answers.map((a) => a._id === answerId ? { ...a, votes } : a),
-        };
+        return { ...prev, answers: prev.answers.map((a) => a._id === answerId ? { ...a, votes } : a) };
       });
     });
 
     socket.on('answer:accepted', ({ answerId }) => {
+      if (!isMounted) return;
       setFaq((prev) => {
         if (!prev) return prev;
-        return {
-          ...prev,
-          answers: prev.answers.map((a) => ({ ...a, isAccepted: a._id === answerId })),
-        };
+        return { ...prev, answers: prev.answers.map((a) => ({ ...a, isAccepted: a._id === answerId })) };
       });
     });
 
-    socket.on('disconnect', () => {});
-
     return () => {
+      isMounted = false;
       socket.emit('faq:leave', id);
-      socket.off('connect');
       socket.off('faq:voted');
       socket.off('faq:newAnswer');
       socket.off('faq:answerVoted');
       socket.off('answer:accepted');
-      socket.off('disconnect');
-      socket.disconnect();
     };
-  }, [id]);
+  }, [id, socket]);
 
   // Fetch FAQ
   useEffect(() => {
@@ -307,9 +300,19 @@ const FAQDetailPage = () => {
     user.role === 'admin'
   );
 
+  // ── Hook: must be called unconditionally, before any early returns ──────────
+  useDocumentMeta({
+    title: faq ? faq.question : 'Loading FAQ...',
+    description: faq
+      ? (faq.body || '').replace(/[#*`_~[\]()!>-]/g, '').replace(/\n+/g, ' ').trim().slice(0, 160)
+      : '',
+  });
+
   const handleFAQVote = async (vote) => {
     if (!user) { toast.error('Login to vote'); return; }
+    if (!faq?._id) { console.error('[vote] faq._id is missing'); return; }
     try {
+      console.log('[vote] id:', faq._id, '| vote:', vote);
       const res = await faqs.vote(faq._id, { vote });
       setFaq((prev) => prev ? { ...prev, votes: res.data.data.votes } : prev);
     } catch (err) {
@@ -366,7 +369,7 @@ const FAQDetailPage = () => {
       return {
         ...prev,
         answers: prev.answers.map((a) =>
-          a._id === answerId ? { ...a, comments: res.data.data?.comments || a.comments } : a
+          a._id === answerId ? { ...a, comments: res.data?.comments || a.comments } : a
         ),
       };
     });
@@ -421,24 +424,39 @@ const FAQDetailPage = () => {
 
   const handleSubmitAnswer = async (e) => {
     e.preventDefault();
+    // Yield to event loop so both StrictMode renders hit the same ref state.
+    // The first call sets the ref to true synchronously; the second will see it
+    // and return before making any network request.
+    await Promise.resolve();
+    if (isSubmittingRef.current) return;
     if (answerBody.trim().length < 30) {
       toast.error('Answer must be at least 30 characters');
       return;
     }
+    isSubmittingRef.current = true;
     setSubmittingAnswer(true);
     let isMounted = true;
     try {
       const res = await faqs.addAnswer(faq._id, { body: answerBody.trim() });
       if (!isMounted) return;
       const newAnswer = res.data.data;
-      setFaq((prev) => prev ? { ...prev, answers: [...(prev.answers || []), newAnswer] } : prev);
+      lastAddedAnswerId.current = newAnswer._id;
+      setFaq((prev) => {
+        if (!prev) return prev;
+        // Discard if answer already exists (dedup against socket event + StrictMode double-call)
+        if (prev.answers?.some((a) => a._id === newAnswer._id)) return prev;
+        return { ...prev, answers: [...prev.answers, newAnswer] };
+      });
       setAnswerBody('');
       toast.success('Answer posted!');
     } catch (err) {
       if (!isMounted) return;
       toast.error(err.message);
     } finally {
-      if (isMounted) setSubmittingAnswer(false);
+      if (isMounted) {
+        setSubmittingAnswer(false);
+        isSubmittingRef.current = false;
+      }
     }
   };
 
@@ -466,15 +484,6 @@ const FAQDetailPage = () => {
     if (a.isAccepted && !b.isAccepted) return -1;
     if (!a.isAccepted && b.isAccepted) return 1;
     return (b.votes || 0) - (a.votes || 0);
-  });
-
-  useDocumentMeta({
-    title: faq.question,
-    description: (faq.body || '')
-      .replace(/[#*`_~[\]()!>-]/g, '')
-      .replace(/\n+/g, ' ')
-      .trim()
-      .slice(0, 160),
   });
 
   return (
@@ -506,7 +515,7 @@ const FAQDetailPage = () => {
 
               {faq.body && (
                 <div className="mt-4 prose prose-blue max-w-none text-[var(--text)]">
-                  <ReactMarkdown>{faq.body}</ReactMarkdown>
+                  <div className="prose prose-sm max-w-none text-[var(--text)]"><ReactMarkdown>{faq.body}</ReactMarkdown></div>
                 </div>
               )}
 
@@ -545,7 +554,7 @@ const FAQDetailPage = () => {
                 </button>
                 {canEdit && (
                   <>
-                    <Link to={`/faqs/${faq._id}/edit`} className="flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-[var(--border)] text-[var(--text-muted)] text-sm hover:bg-[var(--surface)] transition-colors">
+                    <Link to={`/faqs/${faq?._id || ""}/edit`} className="flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-[var(--border)] text-[var(--text-muted)] text-sm hover:bg-[var(--surface)] transition-colors">
                       <Edit2 size={14} /> Edit
                     </Link>
                     <button onClick={() => { if (confirm('Delete this FAQ?')) navigate(`/faqs`); }} className="flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-[var(--error)]/30 text-[var(--error)] text-sm hover:bg-[var(--error)]/10 transition-colors">
@@ -650,7 +659,7 @@ const FAQDetailPage = () => {
             <h3 className="font-semibold text-[var(--text)] mb-3 text-sm">Related FAQs</h3>
             <div className="space-y-2">
               {faq.relatedFAQs.map((related) => (
-                <Link key={related._id} to={`/faqs/${related._id}`}
+                <Link key={related._id} to={`/faqs/${related?._id || ""}`}
                   className="block text-sm text-[var(--primary)] hover:text-[var(--primary)] hover:underline line-clamp-2">
                   {related.question}
                 </Link>

@@ -8,7 +8,7 @@ const getProfile = async (req, res, next) => {
 
     const user = await User.findOne({
       $or: [{ _id: idOrUsername }, { username: idOrUsername }],
-    }).select('name avatar bio reputation badges createdAt role following followerCount notifyOnAnswer notifyOnComment');
+    }).select('name avatar bio reputation badges createdAt role following followerCount followingCount notifyOnAnswer notifyOnComment');
 
     if (!user) return next(new AppError('User not found', 404));
 
@@ -23,10 +23,19 @@ const getProfile = async (req, res, next) => {
       status: 'approved',
     });
 
+    // Check if current user already follows this profile user
+    let isFollowing = false;
+    if (req.user && !req.user._id.equals(user._id)) {
+      isFollowing = req.user.following.some((fid) => fid.equals(user._id));
+    }
+
     return res.json({
       success: true,
       data: {
         ...user.toObject(),
+        isFollowing,
+        followingCount: user.followingCount || 0,
+        followerCount: user.followerCount || 0,
         questionCount: faqs.length,
         answerCount,
         acceptedCount,
@@ -55,7 +64,7 @@ const updateProfile = async (req, res, next) => {
     if (notifyOnAnswer !== undefined) updates.notifyOnAnswer = notifyOnAnswer;
     if (notifyOnComment !== undefined) updates.notifyOnComment = notifyOnComment;
 
-    const user = await User.findByIdAndUpdate(id, updates, { new: true, runValidators: true }).select(
+    const user = await User.findByIdAndUpdate(id, updates, { returnDocument: 'after', runValidators: true }).select(
       'name avatar bio reputation badges email role notifyOnAnswer notifyOnComment createdAt lastActive'
     );
 
@@ -84,7 +93,7 @@ const changePassword = async (req, res, next) => {
     const isMatch = await user.matchPassword(currentPassword);
     if (!isMatch) return next(new AppError('Current password is incorrect', 401));
 
-    user.passwordHash = newPassword;
+    user.password = newPassword;
     await user.save();
 
     return res.json({ success: true, message: 'Password changed successfully' });
@@ -104,12 +113,14 @@ const followUser = async (req, res, next) => {
     const targetUser = await User.findById(id);
     if (!targetUser) return next(new AppError('User not found', 404));
 
-    if (req.user.following.includes(id)) {
+    if (req.user.following.map((fid) => fid.toString()).includes(id)) {
       return res.json({ success: true, message: 'Already following' });
     }
 
     req.user.following.push(id);
-    await req.user.save();
+    req.user.followingCount = (req.user.followingCount || 0) + 1;
+    targetUser.followerCount = (targetUser.followerCount || 0) + 1;
+    await Promise.all([req.user.save(), targetUser.save()]);
 
     return res.json({ success: true, message: 'User followed' });
   } catch (err) {
@@ -121,12 +132,16 @@ const unfollowUser = async (req, res, next) => {
   try {
     const { id } = req.params;
 
-    if (!req.user.following.includes(id)) {
+    const targetUser = await User.findById(id);
+    if (!targetUser) return next(new AppError('User not found', 404));
+
+    if (!req.user.following.map((fid) => fid.toString()).includes(id)) {
       return next(new AppError('Not following this user', 400));
     }
-
-    req.user.following = req.user.following.filter((uid) => !uid.equals(id));
-    await req.user.save();
+    req.user.following = req.user.following.filter((uid) => uid.toString() !== id);
+    req.user.followingCount = Math.max(0, (req.user.followingCount || 0) - 1);
+    targetUser.followerCount = Math.max(0, (targetUser.followerCount || 0) - 1);
+    await Promise.all([req.user.save(), targetUser.save()]);
 
     return res.json({ success: true, message: 'User unfollowed' });
   } catch (err) {
@@ -239,7 +254,7 @@ const getUserActivity = async (req, res, next) => {
       FAQ.find({ 'answers.author': user._id, status: 'approved' })
         .sort({ 'answers.createdAt': -1 })
         .limit(20)
-        .select('question answers.createdAt'),
+        .select('question answers.createdAt answers.author'),
     ]);
 
     const activity = [
@@ -271,6 +286,7 @@ const getUserActivity = async (req, res, next) => {
 };
 
 const getLeaderboard = async (req, res, next) => {
+  console.log('[DEBUG] getLeaderboard called for path:', req.originalUrl);
   try {
     const topUsers = await User.find()
       .sort({ reputation: -1 })

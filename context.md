@@ -1,32 +1,41 @@
 # FAQ Portal - Context & Understanding
 
+_Last updated: 2026-05-30_
+
+---
+
 ## What is this project?
 
 A **crowdsourced FAQ portal** built with the MERN stack (MongoDB, Express.js, React, Node.js).
 
-The idea is: anyone can submit a question+answer pair (FAQ), the community can upvote/downvote, comment, and discuss. Admins moderate all submissions before they go live.
+Anyone can submit a question+answer pair (FAQ), the community can upvote/downvote, comment, and discuss. Admins and moderators review submissions before they go live. The app also features a reputation system, badges, follow/unfollow between users, activity feed, leaderboard, bookmarks, and real-time notifications via WebSocket.
 
 ---
 
-## The Big Picture
+## Architecture
 
-### Core Flow
 ```
-User submits FAQ → Status: PENDING
-                       ↓
-              Admin reviews it
-               ↙          ↘
-       APPROVED          REJECTED
-       (public)          (hidden, author notified)
+faq-portal/
+├── client/                  # React + Vite frontend
+│   └── src/
+│       ├── components/      # common/, faq/, layout/
+│       ├── context/         # AuthContext, ThemeContext, SocketContext
+│       ├── hooks/           # useAsync, useDocumentMeta
+│       ├── pages/           # All route pages
+│       └── services/        # api.js (axios layer)
+└── server/                  # Node.js + Express backend
+    ├── config/              # db.js, socket.js, cloudinary.js
+    ├── controllers/         # auth, faq, user, category, comment, admin, etc.
+    ├── middleware/          # auth, errorHandler, rateLimiters, validators, upload
+    ├── models/              # User, FAQ, Category, Notification, Report
+    ├── routes/              # api routes
+    └── utils/               # AppError, email, badges, notifications, seed
 ```
 
-### Who does what
-
-| Actor  | Can do |
-|--------|--------|
-| Guest  | Browse approved FAQs, search, view FAQ details |
-| User   | All guest + submit FAQ, vote, comment, bookmark, edit profile |
-| Admin  | All user + approve/reject, manage categories, manage users, view stats |
+**Dev servers:** Client on port 5173 (Vite), Server on port 5000 (Node/Express)  
+**Auth:** JWT stored in localStorage, 7-day expiry  
+**Real-time:** Socket.IO for live answer notifications and notification bell  
+**Database:** MongoDB with Mongoose ODM
 
 ---
 
@@ -34,66 +43,58 @@ User submits FAQ → Status: PENDING
 
 ### User
 ```
-name: String (required)
-email: String (unique, required)
-password: String (hashed, required)
-role: String (enum: 'user' | 'admin', default: 'user')
-avatar: String (URL, optional)
-bio: String (optional)
-bookmarks: [ObjectId → FAQ] (ref)
+name, username, email, password (hashed)
+role: 'user' | 'moderator' | 'admin'
+avatar, bio
+reputation (Number, default 0)
+badges: [{ name, awardedAt }]
+following: [ObjectId → User]
+followerCount, followingCount
+savedFAQs: [ObjectId → FAQ]
+notifications: [{ type, message, faqId, read, createdAt }]
+isSuspended, emailVerified, emailVerifyToken, resetPasswordToken
 createdAt, updatedAt
 ```
 
 ### FAQ
 ```
-question: String (required)
-answer: String (required, markdown)
+question, answer (markdown)
 category: ObjectId → Category
 tags: [String]
 author: ObjectId → User
-upvotes: Number (default: 0)
-downvotes: Number (default: 0)
-viewCount: Number (default: 0)
-status: String (enum: 'pending' | 'approved' | 'rejected', default: 'pending')
-rejectionReason: String (optional, set by admin)
+upvotes, downvotes, viewCount, votes (net = upvotes - downvotes)
+status: 'pending' | 'approved' | 'rejected'
+rejectionReason, isPinned, isWiki
+answers: [{
+  _id, author, content, votes,
+  isAccepted, createdAt, updatedAt
+}]  ← embedded subdocument
+answerCount, commentsCount
 createdAt, updatedAt
 ```
 
 ### Category
 ```
-name: String (required, unique)
-slug: String (unique, auto-generated)
-description: String
-icon: String (lucide-react icon name)
-color: String (hex color, e.g. #3b82f6)
-faqCount: Number (denormalized, for performance)
-createdAt, updatedAt
+name, slug, description
+icon (lucide-react name), color (hex)
+faqCount (denormalized)
+createdAt
 ```
 
-### Comment
+### Notification
 ```
-faq: ObjectId → FAQ
 user: ObjectId → User
-content: String (required)
-parentComment: ObjectId → Comment (for replies, 1 level deep)
-createdAt, updatedAt
-```
-
-### Vote
-```
-faq: ObjectId → FAQ
-user: ObjectId → User
-type: String (enum: 'up' | 'down')
-(unique: faq + user compound index)
+type: 'answer' | 'comment' | 'vote' | 'accept' | 'badge' | 'follow' | 'mod'
+message, faqId: ObjectId → FAQ
+read, createdAt
 ```
 
 ### Report
 ```
 faq: ObjectId → FAQ
 reporter: ObjectId → User
-reason: String (enum: 'spam' | 'inappropriate' | 'incorrect' | 'other')
-description: String (optional)
-status: String (enum: 'pending' | 'reviewed', default: 'pending')
+reason: 'spam' | 'inappropriate' | 'incorrect' | 'other'
+description, status: 'pending' | 'reviewed'
 createdAt
 ```
 
@@ -102,260 +103,165 @@ createdAt
 ## API Endpoints
 
 ### Auth
-| Method | Endpoint               | Access | Description |
-|--------|------------------------|--------|-------------|
-| POST   | /api/auth/register     | Public | Register new user |
-| POST   | /api/auth/login        | Public | Login, returns JWT |
-| POST   | /api/auth/logout       | Auth   | Clear token |
-| POST   | /api/auth/forgot-password | Public | Send reset email |
-| POST   | /api/auth/reset-password  | Public | Reset with token |
+| Method | Endpoint | Access |
+|--------|----------|--------|
+| POST | /api/auth/register | Public |
+| POST | /api/auth/login | Public |
+| POST | /api/auth/logout | Auth |
+| GET | /api/auth/me | Auth |
+| POST | /api/auth/forgot-password | Public |
+| PUT | /api/auth/reset-password/:token | Public |
+| GET | /api/auth/verify-email/:token | Public |
 
 ### Users
-| Method | Endpoint               | Access | Description |
-|--------|------------------------|--------|-------------|
-| GET    | /api/users/profile     | Auth   | Get own profile |
-| PUT    | /api/users/profile     | Auth   | Update profile |
-| PUT    | /api/users/avatar      | Auth   | Upload avatar |
-| PUT    | /api/users/change-password | Auth | Change password |
-| GET    | /api/users/my-faqs     | Auth   | Get my submitted FAQs |
-| GET    | /api/users/bookmarks   | Auth   | Get bookmarked FAQs |
-| POST   | /api/users/bookmarks/:faqId | Auth | Bookmark a FAQ |
-| DELETE | /api/users/bookmarks/:faqId | Auth | Remove bookmark |
+| Method | Endpoint | Access |
+|--------|----------|--------|
+| GET | /api/users/:idOrUsername | Public |
+| PUT | /api/users/:id/profile | Auth |
+| PUT | /api/users/:id/password | Auth |
+| POST | /api/users/:id/follow | Auth |
+| DELETE | /api/users/:id/follow | Auth |
+| POST | /api/users/saved/:faqId | Auth |
+| GET | /api/users/saved | Auth |
+| GET | /api/users/feed/activity | Auth |
+| GET | /api/users/leaderboard | Public |
+| GET | /api/users/:idOrUsername/activity | Public |
+| GET | /api/users/:idOrUsername/answers | Public |
 
 ### FAQs
-| Method | Endpoint               | Access | Description |
-|--------|------------------------|--------|-------------|
-| GET    | /api/faqs              | Public | List approved FAQs (paginated, filterable) |
-| GET    | /api/faqs/trending     | Public | Top voted FAQs |
-| GET    | /api/faqs/random       | Public | 5 random approved FAQs |
-| GET    | /api/faqs/search       | Public | Search by keyword |
-| GET    | /api/faqs/:id          | Public | Get single FAQ (increments view) |
-| POST   | /api/faqs              | Auth   | Submit new FAQ |
-| PUT    | /api/faqs/:id          | Auth+  | Edit own FAQ (only if pending) |
-| DELETE | /api/faqs/:id          | Auth+  | Delete own FAQ |
-| POST   | /api/faqs/:id/vote     | Auth   | Toggle upvote/downvote |
-| POST   | /api/faqs/:id/report   | Auth   | Report a FAQ |
+| Method | Endpoint | Access |
+|--------|----------|--------|
+| GET | /api/faqs | Public (paginated) |
+| GET | /api/faqs/search | Public |
+| GET | /api/faqs/trending | Public |
+| GET | /api/faqs/:id | Public |
+| GET | /api/faqs/:id/meta | Public |
+| POST | /api/faqs | Auth |
+| PUT | /api/faqs/:id | Auth (owner, pending only) |
+| DELETE | /api/faqs/:id | Auth (owner) |
+| POST | /api/faqs/:id/vote | Auth |
+| PUT | /api/faqs/:id/vote | Auth (alias) |
+| PUT | /api/faqs/:id/pin | Mod+ |
+| PUT | /api/faqs/:id/wiki | Mod+ |
+| POST | /api/faqs/:id/answers | Auth |
+| PUT | /api/faqs/:id/answers/:answerId | Auth (owner) |
+| DELETE | /api/faqs/:id/answers/:answerId | Auth (owner) |
+| PATCH | /api/faqs/:id/answers/:answerId/accept | Auth (FAQ author) |
+| POST | /api/faqs/:id/comments | Auth |
+| DELETE | /api/faqs/:id/comments/:commentId | Auth |
+| POST | /api/faqs/:id/report | Auth |
 
-### Admin FAQs
-| Method | Endpoint               | Access | Description |
-|--------|------------------------|--------|-------------|
-| GET    | /api/admin/faqs/pending | Admin  | List pending FAQs |
-| GET    | /api/admin/faqs/all    | Admin  | List all FAQs (all statuses) |
-| PATCH  | /api/admin/faqs/:id/approve | Admin | Approve a FAQ |
-| PATCH  | /api/admin/faqs/:id/reject | Admin | Reject with reason |
-| GET    | /api/admin/stats       | Admin  | Dashboard statistics |
+### Admin
+| Method | Endpoint | Access |
+|--------|----------|--------|
+| GET | /api/admin/dashboard | Admin |
+| GET | /api/admin/stats | Admin |
+| GET | /api/admin/users | Admin |
+| PUT | /api/admin/users/:id/role | Admin |
+| PUT | /api/admin/users/:id/suspend | Admin |
+| DELETE | /api/admin/users/:id | Admin |
+| GET | /api/admin/faqs | Admin (all statuses) |
+| PUT | /api/admin/faqs/:id/status | Admin |
+| PATCH | /api/admin/faqs/:id/approve | Admin |
+| PATCH | /api/admin/faqs/:id/reject | Admin |
+
+### Moderator
+| Method | Endpoint | Access |
+|--------|----------|--------|
+| GET | /api/mod/queue | Mod+ |
+| GET | /api/mod/stats | Mod+ |
 
 ### Categories
-| Method | Endpoint               | Access | Description |
-|--------|------------------------|--------|-------------|
-| GET    | /api/categories        | Public | List all categories |
-| GET    | /api/categories/:slug  | Public | Get category with FAQs |
-| POST   | /api/categories        | Admin  | Create category |
-| PUT    | /api/categories/:id    | Admin  | Update category |
-| DELETE | /api/categories/:id    | Admin  | Delete category |
+| Method | Endpoint | Access |
+|--------|----------|--------|
+| GET | /api/categories | Public |
+| GET | /api/categories/:idOrSlug | Public |
+| POST | /api/categories | Admin |
+| PUT | /api/categories/:id | Admin |
+| DELETE | /api/categories/:id | Admin |
 
-### Comments
-| Method | Endpoint               | Access | Description |
-|--------|------------------------|--------|-------------|
-| GET    | /api/faqs/:faqId/comments | Public | List comments for a FAQ |
-| POST   | /api/faqs/:faqId/comments | Auth  | Add comment |
-| PUT    | /api/comments/:id      | Auth+  | Edit own comment |
-| DELETE | /api/comments/:id      | Auth+  | Delete own comment |
-| POST   | /api/comments/:id/reply | Auth  | Reply to a comment |
+### Notifications
+| Method | Endpoint | Access |
+|--------|----------|--------|
+| GET | /api/notifications | Auth |
+| PATCH | /api/notifications/read/all | Auth |
+| PATCH | /api/notifications/:id/read | Auth |
+| DELETE | /api/notifications/:id | Auth |
 
-### Admin Users
-| Method | Endpoint               | Access | Description |
-|--------|------------------------|--------|-------------|
-| GET    | /api/admin/users       | Admin  | List all users |
-| GET    | /api/admin/users/:id   | Admin  | Get user details |
-| PATCH  | /api/admin/users/:id/role | Admin | Change user role |
-| DELETE | /api/admin/users/:id   | Admin  | Delete user |
+### Reports
+| Method | Endpoint | Access |
+|--------|----------|--------|
+| GET | /api/reports | Mod+ |
+| PUT | /api/reports/:id | Mod+ |
+
+### Uploads
+| Method | Endpoint | Access |
+|--------|----------|--------|
+| POST | /api/upload/avatar | Auth (Multer) |
 
 ---
 
 ## Client Routes
 
-| Route                  | Component               | Access  | Description |
-|------------------------|-------------------------|---------|-------------|
-| /                      | HomePage                | Public  | Hero, categories, trending |
-| /faq/:id               | FAQDetailPage           | Public  | Full FAQ + comments |
-| /category/:slug        | CategoryPage            | Public  | FAQs by category |
-| /search?q=...          | SearchPage              | Public  | Search results |
-| /login                 | LoginPage               | Guest   | Login form |
-| /register              | RegisterPage            | Guest   | Register form |
-| /submit                | SubmitFAQPage           | Auth    | Submit new FAQ |
-| /profile               | ProfilePage             | Auth    | Own profile + FAQs |
-| /profile/edit          | ProfileEditPage         | Auth    | Edit profile |
-| /bookmarks             | BookmarksPage           | Auth    | Saved FAQs |
-| /admin                 | AdminDashboardPage      | Admin   | Overview stats |
-| /admin/faqs            | AdminFAQsPage           | Admin   | Pending queue |
-| /admin/categories      | AdminCategoriesPage     | Admin   | Manage categories |
-| /admin/users           | AdminUsersPage          | Admin   | Manage users |
+| Route | Component | Access |
+|-------|-----------|--------|
+| / | HomePage | Public |
+| /faqs | FAQListPage | Public |
+| /faqs/submit | SubmitFAQPage | Auth |
+| /faqs/:id | FAQDetailPage | Public |
+| /faqs/:id/edit | EditFAQPage | Auth (owner) |
+| /profile/:id | ProfilePage | Public |
+| /profile/edit | EditProfilePage | Auth |
+| /saved | SavedFAQsPage | Auth |
+| /feed | ActivityFeedPage | Auth |
+| /leaderboard | LeaderboardPage | Public |
+| /mod | ModQueuePage | Mod+ |
+| /admin | AdminDashboardPage | Admin |
+| /login | LoginPage | Guest |
+| /register | RegisterPage | Guest |
+| /forgot-password | ForgotPasswordPage | Guest |
+| /reset-password/:token | ResetPasswordPage | Guest |
+| * | NotFoundPage | Public |
 
 ---
 
-## Query Parameters for FAQ List
+## Key Implementation Notes
 
-```
-GET /api/faqs?page=1&limit=10&category=id&sort=newest|votes|views&search=keyword
-```
-
-- **page**: pagination page number
-- **limit**: items per page (default 10)
-- **category**: filter by category ID
-- **sort**: newest (default), votes (upvotes), views (viewCount)
-- **search**: keyword search in question + answer
-
----
-
-## Response Format
-
-### Success
-```json
-{
-  "success": true,
-  "data": { ... },
-  "message": "FAQ created successfully"
-}
-```
-
-### Paginated
-```json
-{
-  "success": true,
-  "data": [...],
-  "pagination": {
-    "currentPage": 1,
-    "totalPages": 5,
-    "totalItems": 47,
-    "hasNextPage": true,
-    "hasPrevPage": false
-  }
-}
-```
-
-### Error
-```json
-{
-  "success": false,
-  "error": "FAQ not found"
-}
-```
+1. **Vote toggle**: Toggling the same vote removes it; switching from up→down works in one call. Same for answer votes.
+2. **FAQ status workflow**: pending → approved/rejected by admin. Author can only edit while status is `pending`.
+3. **FAQ answers**: Stored as embedded subdocuments on the FAQ model. Not separate collection.
+4. **Accept answer**: Only the FAQ author can accept an answer. `isAccepted: true` set on the answer subdocument.
+5. **Follow system**: `followUser`/`unfollowUser` maintain `followerCount`/`followingCount` on both users.
+6. **Leaderboard**: Returns top 10 users by `reputation`, includes `faqCount` (approved FAQs authored).
+7. **Activity feed**: Returns paginated activity (FAQs submitted + answers given) for followed users.
+8. **Rejection reason**: Required when admin rejects a FAQ. Stored in `faq.rejectionReason`.
+9. **Badges**: Auto-awarded via `awardBadges.js` utility on reputation changes.
+10. **Real-time**: Socket.IO emits `faq:newAnswer` when an answer is posted (client filters out own events).
+11. **Notifications**: Created via `createNotification.js` utility; read/unread tracking per user.
+12. **Rate limiting**: Per-user (not per-IP) using `req.user._id` when authenticated, falls back to IP.
+13. **View count**: Incremented on every `GET /api/faqs/:id` call.
+14. **Cloudinary**: Configured in `server/config/cloudinary.js` for avatar/image uploads.
 
 ---
 
 ## Tech Stack
 
-### Backend
-- **Node.js** v18+ - runtime
-- **Express.js** - web framework
-- **MongoDB** + **Mongoose** - database + ODM
-- **JWT** (jsonwebtoken) - authentication
-- **bcryptjs** - password hashing
-- **express-validator** - input validation
-- **multer** - file uploads (avatars)
-- **nodemailer** - emails (optional)
-- **helmet** - security headers
-- **morgan** - HTTP logging
-- **cors** - cross-origin
-- **dotenv** - env variables
+**Backend:** Node.js 18+, Express.js, MongoDB + Mongoose, JWT (jsonwebtoken), bcryptjs, express-validator, Multer, nodemailer (Ethereal for dev), Socket.IO, helmet, morgan, dotenv, cloudinary
 
-### Frontend
-- **React 18** + **Vite** - UI framework + build tool
-- **react-router-dom v6** - routing
-- **axios** - HTTP client
-- **react-hot-toast** - toast notifications
-- **lucide-react** - icons
-- **react-markdown** - render FAQ answers
-- **timeago.js** - relative timestamps
-- **CSS Modules** - scoped styling
+**Frontend:** React 18 + Vite, react-router-dom v6, axios, react-hot-toast, lucide-react, react-markdown + remark-gfm, timeago.js, Socket.IO client
 
 ---
 
-## Security Considerations
+## Known Issues / Fixes Applied (2026-05-30)
 
-- Passwords hashed with bcryptjs (10 rounds)
-- JWT expires in 7 days, stored in localStorage
-- Auth middleware protects all write routes
-- Role middleware restricts admin routes
-- Input validation on all endpoints (express-validator)
-- Helmet sets security headers
-- Rate limiting on login (100 req/15min per IP)
-- XSS: React escapes output by default
-- Comments and answers support markdown (sanitized with remark-gfm)
-
----
-
-## File Upload Strategy
-
-- Avatar uploads via Multer (local disk storage)
-- Files saved to `uploads/avatars/` directory
-- Served statically via Express
-- In production: replace with Cloudinary/S3
-
----
-
-## Email Notifications (Optional)
-
-Triggered by nodemailer when:
-1. FAQ is approved → email to author
-2. FAQ is rejected → email to author with reason
-
-Gmail SMTP for dev, SendGrid for production.
-
----
-
-## Key Implementation Details
-
-1. **Vote toggle**: If user votes up then votes up again → remove vote (toggle off). If votes up then down → switch to down.
-2. **FAQ edit**: Only allowed when status is 'pending' (not yet reviewed). Once approved/rejected, author cannot edit.
-3. **Category deletion**: Only allowed if no FAQs are linked to it.
-4. **User deletion**: Deletes all their FAQs and comments too (cascade).
-5. **Rejection reason**: Required when rejecting a FAQ. Stored in FAQ.rejectionReason.
-6. **View count**: Incremented every time someone hits GET /api/faqs/:id (simple, no dedup).
-7. **Slug generation**: Category name slugified (lowercase, hyphens). Used in URL: /category/:slug.
-8. **Markdown answers**: Users write answers in markdown. Rendered with react-markdown + remark-gfm.
-
----
-
-## Current State
-
-- ✅ Folder structure created
-- ✅ todo.md and context.md created
-- ⬜ Nothing else implemented yet — starting from scratch
-
----
-
-## Implementation Priority
-
-### Phase 1: Backend Foundation
-1. Server setup (package.json, index.js, db connection)
-2. User model + auth (register, login, JWT)
-3. FAQ model + CRUD routes
-4. Category model + CRUD routes
-5. Middleware (auth, role, error handler)
-6. Voting system
-
-### Phase 2: Backend Extra
-7. Comments system
-8. Admin endpoints (approve/reject, user management)
-9. Search + filter + pagination
-10. Profile + bookmarks
-
-### Phase 3: Frontend Foundation
-11. Vite + React setup
-12. Routing structure
-13. Auth context + services
-14. Layout components (Navbar, Footer)
-15. Home page + FAQ list
-
-### Phase 4: Frontend Features
-16. FAQ detail page + voting + comments
-17. Submit FAQ form
-18. Search + category filter
-19. Profile page
-20. Admin dashboard
-
----
-
-_Last updated: 2026-05-28_
+- Leaderboard route had wrong file order (`/:idOrUsername` before `/leaderboard`) → fixed
+- Follow/unfollow didn't maintain `followerCount`/`followingCount` → fixed
+- `unfollowUser` missing `User.findById` → fixed
+- Profile API missing `isFollowing`, `followerCount`, `followingCount` fields → fixed
+- Vote endpoint accepted strings instead of numbers → fixed
+- Rate limiter used per-IP instead of per-user → fixed
+- WebSocket needed `polling` fallback + `withCredentials` → fixed
+- ActivityFeedPage crashed on non-array API response → fixed
+- Follow button didn't toggle UI (state mutation issue) → fixed
+- Double-invocation from React StrictMode causing duplicate submissions → fixed
+- Leaderboard UI hardcoded light-mode colors → fixed with CSS variables

@@ -81,7 +81,7 @@ const EditProfilePage = () => {
         notifyOnAnswer,
         notifyOnComment,
       });
-      updateUser(res.data.data);
+      updateUser(res.data);
       toast.success('Profile updated!');
       navigate(`/profile/${user.id}`);
     } catch (err) {

@@ -3,20 +3,20 @@ import { Link } from 'react-router-dom';
 import { format } from 'timeago.js';
 import {
   Flag, CheckCircle, XCircle, Clock, AlertTriangle, Eye,
-  MessageSquare, Loader2, ChevronDown, Ban, Shield,
+  Loader2, Ban, Shield,
 } from 'lucide-react';
 import { faqs } from '../services/api';
 import { getReports, reviewReport } from '../services/api';
 import toast from 'react-hot-toast';
 
-// ── Reject modal ───────────────────────────────────────────────────────────────
+// ── Reject modal ────────────────────────────────────────────────────────────────
 const RejectModal = ({ faq, onConfirm, onCancel }) => {
   const [reason, setReason] = useState('');
   return (
     <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
       <div className="bg-white rounded-xl shadow-xl w-full max-w-md mx-4 p-6">
         <h3 className="text-lg font-bold text-[var(--text-h)] mb-1">Reject FAQ</h3>
-        <p className="text-sm text-[var(--text-muted)] mb-4">"{faq.question}"</p>
+        <p className="text-sm text-[var(--text-muted)] mb-4">"{faq?.question || faq?.target?.question || 'this FAQ'}"</p>
         <label className="block text-sm font-medium text-[var(--text)] mb-1.5">
           Rejection reason <span className="text-[var(--error)]">*</span>
         </label>
@@ -45,8 +45,80 @@ const RejectModal = ({ faq, onConfirm, onCancel }) => {
   );
 };
 
+// ── Action modal for Reports tab ────────────────────────────────────────────────
+const ActionModal = ({ report, onAction, onCancel }) => {
+  const [rejectOpen, setRejectOpen] = useState(false);
+
+  const handleApprove = async () => {
+    try {
+      await faqs.updateStatus(report.faqId, 'approved');
+      await reviewReport(report._id, 'reviewed');
+      onAction(report._id);
+      toast.success('FAQ approved and report marked reviewed');
+    } catch (err) {
+      toast.error(err.message || 'Failed to approve');
+    }
+  };
+
+  const handleReject = async (id, reason) => {
+    try {
+      await faqs.updateStatus(report.faqId, 'rejected', reason);
+      await reviewReport(report._id, 'reviewed');
+      onAction(report._id);
+      toast.success('FAQ rejected and report marked reviewed');
+    } catch (err) {
+      toast.error(err.message || 'Failed to reject');
+    }
+  };
+
+  if (rejectOpen) {
+    return (
+      <RejectModal
+        faq={{ _id: report.faqId, question: report.target?.question }}
+        onConfirm={handleReject}
+        onCancel={() => setRejectOpen(false)}
+      />
+    );
+  }
+
+  return (
+    <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
+      <div className="bg-white rounded-xl shadow-xl w-full max-w-md mx-4 p-6">
+        <h3 className="text-lg font-bold text-[var(--text-h)] mb-1">Take Action</h3>
+        <p className="text-sm text-[var(--text-muted)] mb-1">
+          Report: <span className="uppercase text-xs font-bold">{report.reason}</span>
+        </p>
+        {report.target?.question && (
+          <p className="text-sm text-[var(--text)] mb-4 line-clamp-2">"{report.target.question}"</p>
+        )}
+        {report.details && (
+          <p className="text-xs text-[var(--text-muted)] mb-4 italic">{report.details}</p>
+        )}
+        <div className="flex items-center gap-3 mt-4">
+          <button
+            onClick={handleApprove}
+            className="px-4 py-2 bg-[var(--success)] text-white text-sm font-semibold rounded-lg hover:opacity-90 transition-colors"
+          >
+            Approve FAQ
+          </button>
+          <button
+            onClick={() => setRejectOpen(true)}
+            className="px-4 py-2 bg-[var(--error)] text-white text-sm font-semibold rounded-lg hover:opacity-90 transition-colors"
+          >
+            Reject FAQ
+          </button>
+          <button onClick={onCancel}
+            className="px-4 py-2 bg-[var(--surface)] text-[var(--text-muted)] text-sm font-medium rounded-lg hover:bg-[var(--surface)] transition-colors">
+            Cancel
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 // ── FAQ card used in Pending / Flagged tabs ────────────────────────────────────
-const FAQRow = ({ faq, onApprove, onReject }) => {
+const FAQRow = ({ faq, onApprove, onReject, variant = 'pending' }) => {
   const [rejectOpen, setRejectOpen] = useState(false);
 
   const handleApprove = async () => {
@@ -69,13 +141,16 @@ const FAQRow = ({ faq, onApprove, onReject }) => {
     }
   };
 
-  const handleClose = async () => {
+  // In flagged tab: "Unflag" sets back to pending
+  // In pending tab: "Flag" sets to flagged
+  const handleFlag = async () => {
     try {
-      await faqs.updateStatus(faq._id, 'closed');
-      onReject(faq);
-      toast.success('FAQ closed');
+      const newStatus = variant === 'flagged' ? 'pending' : 'flagged';
+      await faqs.updateStatus(faq._id, newStatus);
+      onReject(faq._id);
+      toast.success(variant === 'flagged' ? 'FAQ unflagged' : 'FAQ flagged for review');
     } catch (err) {
-      toast.error(err.message || 'Failed to close');
+      toast.error(err.message || 'Failed to update');
     }
   };
 
@@ -84,7 +159,7 @@ const FAQRow = ({ faq, onApprove, onReject }) => {
       <div className="bg-white border border-[var(--border)] rounded-xl p-4 hover:shadow-sm transition-shadow">
         <div className="flex items-start justify-between gap-4">
           <div className="min-w-0 flex-1">
-            <Link to={`/faqs/${faq._id}`} target="_blank"
+            <Link to={`/faqs/${faq?._id || ""}`} target="_blank"
               className="font-semibold text-[var(--text-h)] hover:text-[var(--primary)] transition-colors line-clamp-2">
               {faq.question}
             </Link>
@@ -105,7 +180,7 @@ const FAQRow = ({ faq, onApprove, onReject }) => {
           </div>
 
           <div className="flex items-center gap-2 flex-shrink-0">
-            <Link to={`/faqs/${faq._id}`} target="_blank"
+            <Link to={`/faqs/${faq?._id || ""}`} target="_blank"
               className="p-1.5 text-[var(--text-muted)] hover:text-[var(--primary)] hover:bg-[var(--primary)]/10 rounded-lg transition-colors"
               title="Preview">
               <Eye size={15} />
@@ -120,10 +195,10 @@ const FAQRow = ({ faq, onApprove, onReject }) => {
               title="Reject">
               <XCircle size={13} /> Reject
             </button>
-            <button onClick={handleClose}
-              className="flex items-center gap-1 px-3 py-1.5 text-xs font-semibold text-[var(--text-muted)] bg-[var(--surface)] border border-[var(--border)] rounded-lg hover:bg-[var(--surface)] transition-colors"
-              title="Close">
-              <Ban size={13} /> Close
+            <button onClick={handleFlag}
+              className="flex items-center gap-1 px-3 py-1.5 text-xs font-semibold text-[var(--primary)] bg-[var(--primary)]/10 border border-[var(--primary)] rounded-lg hover:bg-[var(--primary)]/20 transition-colors"
+              title={variant === 'flagged' ? 'Unflag (restore to pending)' : 'Flag FAQ'}>
+              {variant === 'flagged' ? <><Ban size={13} /> Unflag</> : <><Flag size={13} /> Flag</>}
             </button>
           </div>
         </div>
@@ -143,6 +218,7 @@ const FAQRow = ({ faq, onApprove, onReject }) => {
 // ── Report row ────────────────────────────────────────────────────────────────
 const ReportRow = ({ report, onAction, onDismiss }) => {
   const [dismissing, setDismissing] = useState(false);
+  const [actionOpen, setActionOpen] = useState(false);
 
   const handleDismiss = async () => {
     setDismissing(true);
@@ -166,54 +242,64 @@ const ReportRow = ({ report, onAction, onDismiss }) => {
   };
 
   return (
-    <div className="bg-white border border-[var(--border)] rounded-xl p-4 hover:shadow-sm transition-shadow">
-      <div className="flex items-start justify-between gap-4">
-        <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-2 mb-1.5">
-            <span className={`px-2 py-0.5 text-xs font-bold uppercase rounded-full ${
-              REASON_COLORS[report.reason] || REASON_COLORS.other
-            }`}>
-              {report.reason || 'other'}
-            </span>
-            {report.status === 'pending' && (
-              <span className="flex items-center gap-1 text-xs text-yellow-600">
-                <Clock size={11} /> Pending
+    <>
+      <div className="bg-white border border-[var(--border)] rounded-xl p-4 hover:shadow-sm transition-shadow">
+        <div className="flex items-start justify-between gap-4">
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-2 mb-1.5">
+              <span className={`px-2 py-0.5 text-xs font-bold uppercase rounded-full ${
+                REASON_COLORS[report.reason] || REASON_COLORS.other
+              }`}>
+                {report.reason || 'other'}
               </span>
+              {report.status === 'pending' && (
+                <span className="flex items-center gap-1 text-xs text-yellow-600">
+                  <Clock size={11} /> Pending
+                </span>
+              )}
+            </div>
+            {report.details && (
+              <p className="text-sm text-[var(--text-muted)] line-clamp-2 mb-2">{report.details}</p>
             )}
+            <div className="flex items-center gap-3 text-xs text-[var(--text-muted)]">
+              <span>Reported by <strong className="text-[var(--text-muted)]">{report.reporter?.name || 'Unknown'}</strong></span>
+              <span>{report.createdAt ? format(new Date(report.createdAt), { locale: 'en' }) : ''}</span>
+              {report.targetType && (
+                <span className="capitalize">on {report.targetType}</span>
+              )}
+            </div>
           </div>
-          {report.details && (
-            <p className="text-sm text-[var(--text-muted)] line-clamp-2 mb-2">{report.details}</p>
-          )}
-          <div className="flex items-center gap-3 text-xs text-[var(--text-muted)]">
-            <span>Reported by <strong className="text-[var(--text-muted)]">{report.reporter?.name || 'Unknown'}</strong></span>
-            <span>{report.createdAt ? format(new Date(report.createdAt), { locale: 'en' }) : ''}</span>
-            {report.targetType && (
-              <span className="capitalize">on {report.targetType}</span>
-            )}
-          </div>
-        </div>
 
-        <div className="flex flex-col items-end gap-2 flex-shrink-0">
-          {report.faqId && (
-            <Link to={`/faqs/${report.faqId}`} target="_blank"
-              className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-[var(--primary)] bg-[var(--primary)]/10 border border-[var(--primary)] rounded-lg hover:bg-[var(--primary)]/10 transition-colors">
-              <Eye size={13} /> View FAQ
-            </Link>
-          )}
-          <div className="flex items-center gap-2">
-            <button onClick={handleDismiss} disabled={dismissing}
-              className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-[var(--text-muted)] bg-[var(--surface)] border border-[var(--border)] rounded-lg hover:bg-[var(--surface)] disabled:opacity-50 transition-colors">
-              {dismissing ? <Loader2 size={11} className="animate-spin" /> : null}
-              Dismiss
-            </button>
-            <button onClick={() => onAction(report)}
-              className="flex items-center gap-1 px-3 py-1.5 text-xs font-semibold text-[var(--error)] bg-[var(--error)]/10 border border-[var(--error)] rounded-lg hover:bg-[var(--error)]/10 transition-colors">
-              <Flag size={12} /> Take Action
-            </button>
+          <div className="flex flex-col items-end gap-2 flex-shrink-0">
+            {report.faqId && (
+              <Link to={`/faqs/${report.faqId || ""}`} target="_blank"
+                className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-[var(--primary)] bg-[var(--primary)]/10 border border-[var(--primary)] rounded-lg hover:bg-[var(--primary)]/10 transition-colors">
+                <Eye size={13} /> View FAQ
+              </Link>
+            )}
+            <div className="flex items-center gap-2">
+              <button onClick={handleDismiss} disabled={dismissing}
+                className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-[var(--text-muted)] bg-[var(--surface)] border border-[var(--border)] rounded-lg hover:bg-[var(--surface)] disabled:opacity-50 transition-colors">
+                {dismissing ? <Loader2 size={11} className="animate-spin" /> : null}
+                Dismiss
+              </button>
+              <button onClick={() => setActionOpen(true)}
+                className="flex items-center gap-1 px-3 py-1.5 text-xs font-semibold text-[var(--error)] bg-[var(--error)]/10 border border-[var(--error)] rounded-lg hover:bg-[var(--error)]/10 transition-colors">
+                <Flag size={12} /> Take Action
+              </button>
+            </div>
           </div>
         </div>
       </div>
-    </div>
+
+      {actionOpen && (
+        <ActionModal
+          report={report}
+          onAction={onAction}
+          onCancel={() => setActionOpen(false)}
+        />
+      )}
+    </>
   );
 };
 
@@ -246,7 +332,7 @@ const ModQueuePage = () => {
       ]);
       if (!isMounted) return;
       setPending(pRes.data.data ?? []);
-      setReports(rRes.data.data ?? []);
+      setReports(rRes.data ?? []);
     } catch {
       if (!isMounted) return;
       toast.error('Failed to load queue');
@@ -274,9 +360,9 @@ const ModQueuePage = () => {
     setReports((r) => r.filter((rep) => rep._id !== id));
 
   const TABS = [
-    { key: 'pending', label: 'Pending', icon: Clock,    count: pending.length },
-    { key: 'flagged', label: 'Flagged', icon: Flag,     count: flagged.length },
-    { key: 'reports', label: 'Reports', icon: AlertTriangle, count: reports.length },
+    { key: 'pending', label: 'Pending', icon: Clock,          count: pending.length },
+    { key: 'flagged', label: 'Flagged', icon: Flag,           count: flagged.length },
+    { key: 'reports', label: 'Reports', icon: AlertTriangle,  count: reports.length },
   ];
 
   return (
@@ -333,6 +419,7 @@ const ModQueuePage = () => {
                   <FAQRow
                     key={faq._id}
                     faq={faq}
+                    variant="pending"
                     onApprove={(id) => removeFAQ(id, pending, setPending)}
                     onReject={(id) => removeFAQ(id, pending, setPending)}
                   />
@@ -348,6 +435,7 @@ const ModQueuePage = () => {
                   <FAQRow
                     key={faq._id}
                     faq={faq}
+                    variant="flagged"
                     onApprove={(id) => removeFAQ(id, flagged, setFlagged)}
                     onReject={(id) => removeFAQ(id, flagged, setFlagged)}
                   />
@@ -363,7 +451,7 @@ const ModQueuePage = () => {
                   <ReportRow
                     key={report._id}
                     report={report}
-                    onAction={(r) => r.faqId && window.open(`/faqs/${r.faqId}`, '_blank')}
+                    onAction={dismissReport}
                     onDismiss={dismissReport}
                   />
                 ))
