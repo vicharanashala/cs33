@@ -13,9 +13,9 @@ const getAll = async (req, res, next) => {
       isRead: false,
     });
 
-    res.json({ success: true, data: notifications, unreadCount });
+    return res.json({ success: true, data: notifications, unreadCount });
   } catch (err) {
-    next(err);
+    return next(err);
   }
 };
 
@@ -32,9 +32,9 @@ const markRead = async (req, res, next) => {
       await notification.save();
     }
 
-    res.json({ success: true, message: 'Notifications marked as read' });
+    return res.json({ success: true, message: 'Notifications marked as read' });
   } catch (err) {
-    next(err);
+    return next(err);
   }
 };
 
@@ -49,9 +49,9 @@ const deleteOne = async (req, res, next) => {
 
     if (!notification) return next(new AppError('Notification not found', 404));
 
-    res.json({ success: true, message: 'Notification deleted' });
+    return res.json({ success: true, message: 'Notification deleted' });
   } catch (err) {
-    next(err);
+    return next(err);
   }
 };
 

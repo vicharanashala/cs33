@@ -17,12 +17,15 @@ const TagInput = ({ tags, onAdd, onRemove }) => {
   const ref = useRef(null);
 
   useEffect(() => {
-    faqs.getAll({ limit: 100 })
-      .then((res) => {
-        const t = [...new Set(res.data.data?.flatMap((f) => f.tags || []) || [])];
-        setAllTags(t);
-      })
-      .catch(() => {});
+    const fetchTags = () => {
+      faqs.getAll({ limit: 100 })
+        .then((res) => {
+          const t = [...new Set((res.data.data ?? []).flatMap((f) => f.tags ?? []) ?? [])];
+          setAllTags(t);
+        })
+        .catch(() => {});
+    };
+    fetchTags();
   }, []);
 
   const handleKeyDown = (e) => {
@@ -49,11 +52,11 @@ const TagInput = ({ tags, onAdd, onRemove }) => {
 
   return (
     <div className="relative" ref={ref}>
-      <div className="flex flex-wrap gap-1.5 p-2 border border-gray-300 rounded-lg min-h-[44px] focus-within:ring-2 focus-within:ring-blue-500 focus-within:border-blue-500">
+      <div className="flex flex-wrap gap-1.5 p-2 border border-[var(--border)] rounded-lg min-h-[44px] focus-within:ring-2 focus-within:ring-[var(--primary)] focus-within:border-[var(--primary)]">
         {tags.map((t) => (
-          <span key={t} className="inline-flex items-center gap-1 px-2 py-0.5 bg-blue-50 text-blue-600 text-xs rounded-full">
+          <span key={t} className="inline-flex items-center gap-1 px-2 py-0.5 bg-[var(--primary)]/10 text-[var(--primary)] text-xs rounded-full">
             {t}
-            <button type="button" onClick={() => onRemove(t)} className="hover:text-blue-800"><X size={11} /></button>
+            <button type="button" onClick={() => onRemove(t)} className="hover:text-[var(--primary)]"><X size={11} /></button>
           </span>
         ))}
         {tags.length < MAX_TAGS && (
@@ -70,10 +73,10 @@ const TagInput = ({ tags, onAdd, onRemove }) => {
         )}
       </div>
       {suggestions && filtered.length > 0 && (
-        <div className="absolute z-10 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg">
+        <div className="absolute z-10 w-full mt-1 bg-white border border-[var(--border)] rounded-lg shadow-lg">
           {filtered.map((t) => (
             <button key={t} type="button" onMouseDown={() => addTag(t)}
-              className="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-blue-50 transition-colors">{t}</button>
+              className="w-full text-left px-3 py-2 text-sm text-[var(--text)] hover:bg-[var(--primary)]/10 transition-colors">{t}</button>
           ))}
         </div>
       )}
@@ -86,11 +89,11 @@ const RevisionHistory = ({ history }) => {
   const [open, setOpen] = useState(false);
   if (!history || history.length === 0) return null;
   return (
-    <div className="border border-gray-200 rounded-lg overflow-hidden">
+    <div className="border border-[var(--border)] rounded-lg overflow-hidden">
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}
-        className="w-full flex items-center justify-between px-4 py-3 bg-gray-50 hover:bg-gray-100 transition-colors text-sm font-medium text-gray-600"
+        className="w-full flex items-center justify-between px-4 py-3 bg-[var(--surface)] hover:bg-[var(--surface)] transition-colors text-sm font-medium text-[var(--text-muted)]"
       >
         <span>📜 Revision History ({history.length} edit{history.length > 1 ? 's' : ''})</span>
         {open ? <ChevronUp size={15} /> : <ChevronDown size={15} />}
@@ -100,11 +103,11 @@ const RevisionHistory = ({ history }) => {
           {[...history].reverse().map((rev, i) => (
             <div key={i} className="px-4 py-3">
               <div className="flex items-center justify-between mb-1">
-                <span className="text-xs text-gray-400">
+                <span className="text-xs text-[var(--text-muted)]">
                   {new Date(rev.editedAt).toLocaleString()}
                 </span>
               </div>
-              <p className="text-sm text-gray-700">{rev.body}</p>
+              <p className="text-sm text-[var(--text)]">{rev.body}</p>
             </div>
           ))}
         </div>
@@ -127,29 +130,36 @@ const EditFAQPage = () => {
   const [originalFaq, setOriginalFaq] = useState(null);
 
   useEffect(() => {
+    if (!user) return;
+    let isMounted = true;
     const fetchFAQ = async () => {
       try {
         const res = await faqs.getOne(id);
+        if (!isMounted) return;
         const faq = res.data.data;
 
         const isOwner = faq.author?._id === user?.id || faq.author === user?.id;
         const isMod = user?.role === 'moderator' || user?.role === 'admin';
         if (!isOwner && !isMod) {
+          if (!isMounted) return;
           toast.error('Not authorized to edit this FAQ');
           navigate('/');
           return;
         }
 
+        if (!isMounted) return;
         setForm({ question: faq.question, body: faq.body || '', category: faq.category, tags: faq.tags || [] });
         setOriginalFaq(faq);
       } catch {
+        if (!isMounted) return;
         toast.error('Failed to load FAQ');
         navigate('/');
       } finally {
-        setLoading(false);
+        if (isMounted) setLoading(false);
       }
     };
-    if (user) fetchFAQ();
+    fetchFAQ();
+    return () => { isMounted = false; };
   }, [id, user, navigate]);
 
   const set = (field, value) => {
@@ -182,13 +192,13 @@ const EditFAQPage = () => {
   };
 
   if (loading) return (
-    <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-      <Loader2 size={28} className="animate-spin text-blue-600" />
+    <div className="min-h-screen bg-[var(--surface)] flex items-center justify-center">
+      <Loader2 size={28} className="animate-spin text-[var(--primary)]" />
     </div>
   );
 
   return (
-    <div className="min-h-screen bg-gray-50 py-10 px-4">
+    <div className="min-h-screen bg-[var(--surface)] py-10 px-4">
       <div className="max-w-3xl mx-auto">
         {/* Header */}
         <div className="flex items-center gap-3 mb-8">
@@ -196,8 +206,8 @@ const EditFAQPage = () => {
             <Edit2 size={20} className="text-purple-600" />
           </div>
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">Edit FAQ</h1>
-            <p className="text-sm text-gray-500">Update your question and community details</p>
+            <h1 className="text-2xl font-bold text-[var(--text-h)]">Edit FAQ</h1>
+            <p className="text-sm text-[var(--text-muted)]">Update your question and community details</p>
           </div>
         </div>
 
@@ -205,8 +215,8 @@ const EditFAQPage = () => {
 
           {/* Question */}
           <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-1.5">
-              Question <span className="text-red-500">*</span>
+            <label className="block text-sm font-semibold text-[var(--text)] mb-1.5">
+              Question <span className="text-[var(--error)]">*</span>
             </label>
             <div className="relative">
               <input
@@ -214,43 +224,43 @@ const EditFAQPage = () => {
                 value={form.question}
                 onChange={(e) => set('question', e.target.value)}
                 maxLength={300}
-                className={`w-full border rounded-lg px-4 py-2.5 pr-16 text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500 ${errors.question ? 'border-red-400 bg-red-50' : 'border-gray-300'}`}
+                className={`w-full border rounded-lg px-4 py-2.5 pr-16 text-[var(--text-h)] focus:outline-none focus:ring-2 focus:ring-[var(--primary)] ${errors.question ? 'border-[var(--error)] bg-[var(--error)]/10' : 'border-[var(--border)]'}`}
               />
-              <span className={`absolute right-3 top-1/2 -translate-y-1/2 text-xs ${form.question.length > 280 ? 'text-red-400' : 'text-gray-400'}`}>
+              <span className={`absolute right-3 top-1/2 -translate-y-1/2 text-xs ${form.question.length > 280 ? 'text-[var(--error)]' : 'text-[var(--text-muted)]'}`}>
                 {form.question.length}/300
               </span>
             </div>
-            {errors.question && <p className="mt-1 text-sm text-red-500 flex items-center gap-1"><X size={13} />{errors.question}</p>}
+            {errors.question && <p className="mt-1 text-sm text-[var(--error)] flex items-center gap-1"><X size={13} />{errors.question}</p>}
           </div>
 
           {/* Category */}
           <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-1.5">
-              Category <span className="text-red-500">*</span>
+            <label className="block text-sm font-semibold text-[var(--text)] mb-1.5">
+              Category <span className="text-[var(--error)]">*</span>
             </label>
             <select
               value={form.category}
               onChange={(e) => set('category', e.target.value)}
-              className={`w-full border rounded-lg px-4 py-2.5 text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500 ${errors.category ? 'border-red-400 bg-red-50' : 'border-gray-300'}`}
+              className={`w-full border rounded-lg px-4 py-2.5 text-[var(--text-h)] focus:outline-none focus:ring-2 focus:ring-[var(--primary)] ${errors.category ? 'border-[var(--error)] bg-[var(--error)]/10' : 'border-[var(--border)]'}`}
             >
               <option value="">Select a category...</option>
               {CATEGORIES.map((c) => <option key={c} value={c}>{c.charAt(0).toUpperCase() + c.slice(1)}</option>)}
             </select>
-            {errors.category && <p className="mt-1 text-sm text-red-500 flex items-center gap-1"><X size={13} />{errors.category}</p>}
+            {errors.category && <p className="mt-1 text-sm text-[var(--error)] flex items-center gap-1"><X size={13} />{errors.category}</p>}
           </div>
 
           {/* Body */}
           <div>
             <div className="flex items-center justify-between mb-1.5">
-              <label className="text-sm font-semibold text-gray-700">Details <span className="text-gray-400 font-normal">(optional)</span></label>
+              <label className="text-sm font-semibold text-[var(--text)]">Details <span className="text-[var(--text-muted)] font-normal">(optional)</span></label>
               <button type="button" onClick={() => setShowPreview((p) => !p)}
-                className="flex items-center gap-1.5 text-xs text-gray-500 hover:text-blue-600 transition-colors">
+                className="flex items-center gap-1.5 text-xs text-[var(--text-muted)] hover:text-[var(--primary)] transition-colors">
                 {showPreview ? <><EyeOff size={13} /> Edit</> : <><Eye size={13} /> Preview</>}
               </button>
             </div>
             {showPreview ? (
-              <div className="border border-gray-300 rounded-lg p-4 min-h-[160px] bg-gray-50 prose prose-sm max-w-none text-gray-700">
-                {form.body ? <ReactMarkdown>{form.body}</ReactMarkdown> : <p className="text-gray-400 italic">Nothing to preview yet...</p>}
+              <div className="border border-[var(--border)] rounded-lg p-4 min-h-[160px] bg-[var(--surface)] prose prose-sm max-w-none text-[var(--text)]">
+                {form.body ? <ReactMarkdown>{form.body}</ReactMarkdown> : <p className="text-[var(--text-muted)] italic">Nothing to preview yet...</p>}
               </div>
             ) : (
               <div>
@@ -258,9 +268,9 @@ const EditFAQPage = () => {
                   value={form.body}
                   onChange={(e) => set('body', e.target.value)}
                   rows={7} maxLength={5000}
-                  className="w-full border border-gray-300 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-y text-gray-800"
+                  className="w-full border border-[var(--border)] rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-[var(--primary)] resize-y text-[var(--text-h)]"
                 />
-                <p className="text-right mt-1 text-xs text-gray-400">{form.body.length}/5000</p>
+                <p className="text-right mt-1 text-xs text-[var(--text-muted)]">{form.body.length}/5000</p>
               </div>
             )}
           </div>
@@ -268,8 +278,8 @@ const EditFAQPage = () => {
           {/* Tags */}
           <div>
             <div className="flex items-center justify-between mb-1.5">
-              <label className="text-sm font-semibold text-gray-700">Tags <span className="text-gray-400 font-normal">(up to {MAX_TAGS})</span></label>
-              <span className="text-xs text-gray-400">{form.tags.length}/{MAX_TAGS}</span>
+              <label className="text-sm font-semibold text-[var(--text)]">Tags <span className="text-[var(--text-muted)] font-normal">(up to {MAX_TAGS})</span></label>
+              <span className="text-xs text-[var(--text-muted)]">{form.tags.length}/{MAX_TAGS}</span>
             </div>
             <TagInput
               tags={form.tags}
@@ -286,12 +296,12 @@ const EditFAQPage = () => {
           {/* Submit */}
           <div className="flex items-center gap-3 pt-2">
             <button type="submit" disabled={submitting}
-              className="flex items-center gap-2 px-6 py-2.5 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 disabled:opacity-60 disabled:cursor-not-allowed transition-colors">
+              className="flex items-center gap-2 px-6 py-2.5 bg-[var(--primary)] text-white font-semibold rounded-lg hover:opacity-90 disabled:opacity-60 disabled:cursor-not-allowed transition-colors">
               {submitting && <Loader2 size={15} className="animate-spin" />}
               {submitting ? 'Saving...' : 'Save Changes'}
             </button>
             <Link to={`/faqs/${id}`}
-              className="px-6 py-2.5 bg-gray-100 text-gray-600 font-semibold rounded-lg hover:bg-gray-200 transition-colors">
+              className="px-6 py-2.5 bg-[var(--surface)] text-[var(--text-muted)] font-semibold rounded-lg hover:bg-[var(--surface)] transition-colors">
               Cancel
             </Link>
           </div>

@@ -11,7 +11,7 @@ const decodeToken = (token) => {
   }
 };
 
-const AuthProvider = ({ children }) => {
+export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(() => {
     const token = localStorage.getItem('token');
     if (token) {

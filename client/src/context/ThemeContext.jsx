@@ -11,11 +11,15 @@ const getInitialTheme = () => {
 };
 
 const applyTheme = (theme) => {
+  const root = document.documentElement;
   if (theme === 'dark') {
-    document.documentElement.classList.add('dark');
+    root.classList.add('dark');
   } else {
-    document.documentElement.classList.remove('dark');
+    root.classList.remove('dark');
   }
+  // Inform the browser of supported color schemes so native UI (scrollbars,
+  // form controls, etc.) also updates to match the dark/light theme.
+  root.style.colorScheme = theme;
 };
 
 export const ThemeProvider = ({ children }) => {

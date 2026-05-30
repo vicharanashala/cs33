@@ -112,10 +112,10 @@ const MarkdownEditor = ({ value = '', onChange, placeholder = '', maxLength = 50
   const nearLimit = charCount >= maxLength - 100;
 
   return (
-    <div className="border border-gray-300 rounded-lg overflow-hidden focus-within:ring-2 focus-within:ring-blue-500 focus-within:border-blue-500 transition-all">
+    <div className="border border-[var(--border)] rounded-lg overflow-hidden focus-within:ring-2 focus-within:ring-[var(--primary)] focus-within:border-[var(--primary)] transition-all">
 
       {/* Toolbar */}
-      <div className="flex items-center justify-between px-2 py-1.5 bg-gray-50 border-b border-gray-200 flex-wrap gap-1">
+      <div className="flex items-center justify-between px-2 py-1.5 bg-[var(--surface)] border-b border-[var(--border)] flex-wrap gap-1">
         <div className="flex items-center gap-0.5 flex-wrap">
           {actions.map((action) => (
             <button
@@ -123,7 +123,7 @@ const MarkdownEditor = ({ value = '', onChange, placeholder = '', maxLength = 50
               type="button"
               title={action.title}
               onClick={action.run}
-              className="p-1.5 rounded text-gray-500 hover:text-gray-800 hover:bg-gray-200 transition-colors"
+              className="p-1.5 rounded text-[var(--text-muted)] hover:text-[var(--text-h)] hover:bg-[var(--surface)] transition-colors"
             >
               {action.icon}
             </button>
@@ -135,8 +135,8 @@ const MarkdownEditor = ({ value = '', onChange, placeholder = '', maxLength = 50
           onClick={() => setShowPreview((p) => !p)}
           className={`flex items-center gap-1.5 px-2.5 py-1 rounded text-xs font-medium transition-colors ${
             showPreview
-              ? 'bg-blue-100 text-blue-700'
-              : 'text-gray-500 hover:bg-gray-200'
+              ? 'bg-[var(--primary)]/10 text-[var(--primary)]'
+              : 'text-[var(--text-muted)] hover:bg-[var(--surface)]'
           }`}
         >
           {showPreview ? 'Edit' : 'Preview'}
@@ -153,15 +153,15 @@ const MarkdownEditor = ({ value = '', onChange, placeholder = '', maxLength = 50
             onKeyDown={handleKeyDown}
             placeholder={placeholder}
             maxLength={maxLength}
-            className="w-full px-4 py-3 text-gray-800 resize-none focus:outline-none bg-white"
+            className="w-full px-4 py-3 text-[var(--text-h)] resize-none focus:outline-none bg-[var(--card-bg)]"
             style={{ minHeight: '180px' }}
           />
         ) : (
           <>
             {/* Side-by-side on desktop, stacked on mobile */}
-            <div className="flex-1 flex flex-col sm:flex-row border-gray-100 overflow-auto"
+            <div className="flex-1 flex flex-col sm:flex-row border-[var(--border)] overflow-auto"
               style={{ minHeight: '180px', maxHeight: '400px' }}>
-              <div className="flex-1 border-r-0 sm:border-r border-b sm:border-b-0 border-gray-100 overflow-auto">
+              <div className="flex-1 border-r-0 sm:border-r border-b sm:border-b-0 border-[var(--border)] overflow-auto">
                 <textarea
                   value={value}
                   onChange={(e) => onChange(e.target.value)}
@@ -188,8 +188,8 @@ const MarkdownEditor = ({ value = '', onChange, placeholder = '', maxLength = 50
       </div>
 
       {/* Char count */}
-      <div className={`px-4 py-1.5 border-t border-gray-100 text-xs text-right ${
-        nearLimit ? 'text-red-500 font-semibold' : 'text-gray-400'
+      <div className={`px-4 py-1.5 border-t border-[var(--border)] text-xs text-right ${
+        nearLimit ? 'text-[var(--error)] font-semibold' : 'text-[var(--text-muted)]'
       }`}>
         {charCount.toLocaleString()} / {maxLength.toLocaleString()}
       </div>

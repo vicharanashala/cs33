@@ -15,7 +15,7 @@ router.get('/', async (req, res, next) => {
       ]),
     ]);
 
-    res.json({
+    return res.json({
       success: true,
       data: {
         faqCount,
@@ -24,7 +24,7 @@ router.get('/', async (req, res, next) => {
       },
     });
   } catch (err) {
-    next(err);
+    return next(err);
   }
 });
 

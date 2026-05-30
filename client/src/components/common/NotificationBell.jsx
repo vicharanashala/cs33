@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Bell, CheckCheck, X, Loader2 } from 'lucide-react';
-import { formatDistanceToNow } from 'timeago.js';
+import { format } from 'timeago.js';
 import { notifications as notifApi } from '../../services/api';
 import { useSocket } from '../../context/SocketContext';
 
@@ -16,13 +16,16 @@ const NotificationBell = () => {
 
   // Fetch initial notifications
   useEffect(() => {
+    let isMounted = true;
     notifApi.getAll()
       .then((res) => {
-        setList(res.data.data || []);
-        setUnread(res.data.unreadCount || 0);
+        if (!isMounted) return;
+        setList(res.data.data ?? []);
+        setUnread(res.data.unreadCount ?? 0);
       })
       .catch(() => {})
-      .finally(() => setLoading(false));
+      .finally(() => { if (isMounted) setLoading(false); });
+    return () => { isMounted = false; };
   }, []);
 
   // Socket subscription — prepend new notifications
@@ -43,23 +46,28 @@ const NotificationBell = () => {
     };
     document.addEventListener('mousedown', handler);
     return () => document.removeEventListener('mousedown', handler);
-  }, []);
+  }, [open]);
 
   const handleOpen = () => setOpen((o) => !o);
 
   const handleOne = async (notif) => {
+    let isMounted = true;
     if (!notif.isRead) {
       try { await notifApi.markRead(notif._id); } catch {}
+      if (!isMounted) return;
       setList((l) => l.map((n) => n._id === notif._id ? { ...n, isRead: true } : n));
       setUnread((n) => Math.max(0, n - 1));
     }
+    if (!isMounted) return;
     if (notif.faqId) navigate(`/faqs/${notif.faqId}`);
     setOpen(false);
   };
 
   const handleMarkAll = async () => {
+    let isMounted = true;
     try {
       await notifApi.markAllRead();
+      if (!isMounted) return;
       setList((l) => l.map((n) => ({ ...n, isRead: true })));
       setUnread(0);
     } catch {}
@@ -72,12 +80,12 @@ const NotificationBell = () => {
       {/* Bell trigger */}
       <button
         onClick={handleOpen}
-        className="relative p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-full transition-colors"
+        className="relative p-2 text-[var(--text-muted)] hover:text-[var(--text)] hover:bg-[var(--surface)] rounded-full transition-colors"
         aria-label="Notifications"
       >
         <Bell size={20} />
         {unread > 0 && (
-          <span className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center px-1 leading-none">
+          <span className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] bg-[var(--error)]/100 text-white text-[10px] font-bold rounded-full flex items-center justify-center px-1 leading-none">
             {unread > 99 ? '99+' : unread}
           </span>
         )}
@@ -85,20 +93,20 @@ const NotificationBell = () => {
 
       {/* Dropdown */}
       {open && (
-        <div className="absolute right-0 mt-2 w-80 bg-white rounded-2xl shadow-xl border border-gray-200 z-50 overflow-hidden">
+        <div className="absolute right-0 mt-2 w-80 bg-[var(--card-bg)] rounded-2xl shadow-xl border border-[var(--border)] z-50 overflow-hidden">
           {/* Header */}
-          <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
-            <span className="text-sm font-semibold text-gray-700">Notifications</span>
+          <div className="flex items-center justify-between px-4 py-3 border-b border-[var(--border)]">
+            <span className="text-sm font-semibold text-[var(--text)]">Notifications</span>
             <div className="flex items-center gap-2">
               {unread > 0 && (
                 <button
                   onClick={handleMarkAll}
-                  className="flex items-center gap-1 text-xs text-blue-600 hover:text-blue-700 font-medium transition-colors"
+                  className="flex items-center gap-1 text-xs text-[var(--primary)] hover:text-[var(--primary)] font-medium transition-colors"
                 >
                   <CheckCheck size={13} /> Mark all read
                 </button>
               )}
-              <button onClick={() => setOpen(false)} className="text-gray-400 hover:text-gray-600">
+              <button onClick={() => setOpen(false)} className="text-[var(--text-muted)] hover:text-[var(--text-muted)]">
                 <X size={15} />
               </button>
             </div>
@@ -108,22 +116,22 @@ const NotificationBell = () => {
           <div className="max-h-80 overflow-y-auto divide-y divide-gray-50">
             {loading ? (
               <div className="flex items-center justify-center py-10">
-                <Loader2 size={18} className="animate-spin text-blue-500" />
+                <Loader2 size={18} className="animate-spin text-[var(--primary)]" />
               </div>
             ) : visible.length === 0 ? (
-              <p className="text-center text-sm text-gray-400 py-8">No notifications yet</p>
+              <p className="text-center text-sm text-[var(--text-muted)] py-8">No notifications yet</p>
             ) : (
               visible.map((n) => (
                 <button
                   key={n._id}
                   onClick={() => handleOne(n)}
-                  className={`w-full text-left px-4 py-3 hover:bg-gray-50 transition-colors ${
-                    !n.isRead ? 'border-l-2 border-blue-500 bg-blue-50/40' : 'border-l-2 border-transparent'
+                  className={`w-full text-left px-4 py-3 hover:bg-[var(--surface)] transition-colors ${
+                    !n.isRead ? 'border-l-2 border-[var(--primary)] bg-[var(--primary)]/10/40' : 'border-l-2 border-transparent'
                   }`}
                 >
-                  <p className="text-sm text-gray-700 leading-snug">{n.message}</p>
-                  <p className="text-xs text-gray-400 mt-0.5">
-                    {n.createdAt ? formatDistanceToNow(new Date(n.createdAt), { locale: 'en' }) : ''}
+                  <p className="text-sm text-[var(--text)] leading-snug">{n.message}</p>
+                  <p className="text-xs text-[var(--text-muted)] mt-0.5">
+                    {n.createdAt ? format(new Date(n.createdAt), { locale: 'en' }) : ''}
                   </p>
                 </button>
               ))
@@ -135,7 +143,7 @@ const NotificationBell = () => {
             <Link
               to="/notifications"
               onClick={() => setOpen(false)}
-              className="block text-center text-xs text-blue-500 hover:text-blue-600 py-2.5 border-t border-gray-100 font-medium"
+              className="block text-center text-xs text-[var(--primary)] hover:text-[var(--primary)] py-2.5 border-t border-[var(--border)] font-medium"
             >
               View all notifications
             </Link>

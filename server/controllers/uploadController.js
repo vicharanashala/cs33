@@ -16,7 +16,7 @@ const uploadAvatar = (req, res, next) => {
     },
     (err, result) => {
       if (err || !result) return next(new AppError('Cloudinary upload failed', 500));
-      res.json({ success: true, url: result.secure_url });
+      return res.json({ success: true, url: result.secure_url });
     }
   );
 

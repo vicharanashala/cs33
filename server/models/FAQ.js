@@ -27,6 +27,7 @@ const AnswerSchema = new mongoose.Schema(
       type: String,
       required: [true, 'Answer body is required'],
       maxlength: [5000, 'Answer cannot exceed 5000 characters'],
+      minlength: [30, 'Answer must be at least 30 characters'],
     },
     author: {
       type: mongoose.Schema.Types.ObjectId,
@@ -39,8 +40,15 @@ const AnswerSchema = new mongoose.Schema(
     },
     voters: [
       {
-        user: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
-        vote: { type: Number, min: -1, max: 1 },
+        user: {
+          type: mongoose.Schema.Types.ObjectId,
+          ref: 'User',
+        },
+        vote: {
+          type: Number,
+          min: -1,
+          max: 1,
+        },
       },
     ],
     isAccepted: {
@@ -105,8 +113,15 @@ const FAQSchema = new mongoose.Schema(
     },
     voters: [
       {
-        user: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
-        vote: { type: Number, min: -1, max: 1 },
+        user: {
+          type: mongoose.Schema.Types.ObjectId,
+          ref: 'User',
+        },
+        vote: {
+          type: Number,
+          min: -1,
+          max: 1,
+        },
       },
     ],
     views: {
@@ -148,18 +163,24 @@ const FAQSchema = new mongoose.Schema(
   }
 );
 
+// ── Plugins ────────────────────────────────────────────────────────────────────
 FAQSchema.plugin(mongoosePaginate);
 
+// ── Indexes ────────────────────────────────────────────────────────────────────
 FAQSchema.index({ question: 'text', body: 'text', tags: 'text' });
+FAQSchema.index({ createdAt: -1 });
+FAQSchema.index({ 'answers.author': 1 });
 
-// Virtual: hot score for trending
+// ── Virtual: hot score for trending ───────────────────────────────────────────
 FAQSchema.virtual('hotScore').get(function () {
   const hoursOld = (Date.now() - this.createdAt) / 3600000;
   return (this.votes * 3 + this.answers.length * 2 + this.views * 0.1) /
     Math.pow(hoursOld + 2, 1.5);
 });
 
-FAQSchema.pre('save', function (next) {
+// ── Pre-save: auto-generate unique slug ───────────────────────────────────────
+// FIX: async hook must NOT use `next` parameter; use `return` instead of `return next()`
+FAQSchema.pre('save', async function () {
   if (this.isModified('question') || !this.slug) {
     const base = this.question
       .toLowerCase()
@@ -176,17 +197,12 @@ FAQSchema.pre('save', function (next) {
       if (!existing || existing._id.equals(self._id)) return;
       slug = `${base}-${counter}`;
       counter++;
-      await findUniqueSlug();
+      return findUniqueSlug();
     };
 
-    return findUniqueSlug()
-      .then(() => {
-        this.slug = slug;
-        // next();
-      })
-      .catch(next);
+    await findUniqueSlug();
+    this.slug = slug;
   }
-  // next();
 });
 
 module.exports = mongoose.model('FAQ', FAQSchema);

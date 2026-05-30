@@ -13,7 +13,7 @@ export default function NotFoundPage() {
         <p className="text-white/80 mb-8">The page you're looking for doesn't exist.</p>
         <Link
           to="/"
-          className="inline-flex items-center gap-2 bg-white text-blue-600 font-semibold px-6 py-3 rounded-lg hover:bg-blue-50 transition"
+          className="inline-flex items-center gap-2 bg-[var(--card-bg)] text-[var(--primary)] font-semibold px-6 py-3 rounded-lg hover:bg-[var(--primary)]/10 transition"
         >
           <Home size={18} /> Back to Home
         </Link>

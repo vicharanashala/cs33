@@ -15,6 +15,7 @@ const userSchema = new mongoose.Schema(
     username: {
       type: String,
       unique: true,
+      sparse: true,
       lowercase: true,
       trim: true,
       maxlength: [30, 'Username cannot exceed 30 characters'],
@@ -26,9 +27,12 @@ const userSchema = new mongoose.Schema(
       lowercase: true,
       trim: true,
     },
+    password: {
+      type: String,
+      select: false,
+    },
     passwordHash: {
       type: String,
-      required: [true, 'Password is required'],
       select: false,
     },
     role: {
@@ -115,16 +119,28 @@ const userSchema = new mongoose.Schema(
   }
 );
 
+// ── Plugin ─────────────────────────────────────────────────────────────────────
 userSchema.plugin(mongoosePaginate);
 
-userSchema.pre('save', async function (next) {
-  // if (!this.isModified('passwordHash')) return next();
-  if (!this.isModified('passwordHash'))
-  this.passwordHash = await bcrypt.hash(this.passwordHash, 10);
-  // next(); commited due to error in step 39
+// ── Index ──────────────────────────────────────────────────────────────────────
+userSchema.index({ email: 1 });
+
+// ── Pre-save: hash password ────────────────────────────────────────────────────
+// Accepts `password` (plain) OR `passwordHash` (already hashed).
+// If `password` is set directly, hash it. If `passwordHash` is modified, hash it.
+userSchema.pre('save', async function () {
+  if (this.isModified('password') && !this.isModified('passwordHash')) {
+    // Plain-text password was set via `password` virtual or direct assignment
+    this.passwordHash = await bcrypt.hash(this.password, 10);
+    this.password = undefined; // don't persist plain text
+  } else if (this.isModified('passwordHash')) {
+    this.passwordHash = await bcrypt.hash(this.passwordHash, 10);
+  }
 });
 
+// ── Methods ────────────────────────────────────────────────────────────────────
 userSchema.methods.matchPassword = async function (plain) {
+  if (!this.passwordHash) return false;
   return bcrypt.compare(plain, this.passwordHash);
 };
 

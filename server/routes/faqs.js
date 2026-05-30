@@ -9,6 +9,7 @@ const {
   addCommentRules,
   reportRules,
   paginationRules,
+  ObjectIdParam,
 } = require('../middleware/validators');
 const {
   getAll,
@@ -34,15 +35,15 @@ const {
 } = require('../controllers/faqController');
 
 // All public list/search endpoints — light pagination validation only
-router.get('/search',  optionalAuth, paginationRules, search);
-router.get('/trending', optionalAuth, getTrending);
+router.get('/',               optionalAuth, paginationRules, getAll);
+router.get('/search',         optionalAuth, paginationRules, search);
+router.get('/trending',       optionalAuth, getTrending);
 
 // FAQ detail & meta (must be after /search and /trending to avoid ID collision)
-router.get('/:id/meta', optionalAuth, getMeta);
-router.get('/:id',      optionalAuth, getOne);
+router.get('/:id/meta',       optionalAuth, getMeta);
+router.get('/:id',            optionalAuth, getOne);
 
-// ── Authenticated write operations — validation + rate limiting ───────────────
-
+// ── FAQ creation with rate limit + validation ─────────────────────────────────
 router.post(
   '/',
   isAuthenticated,
@@ -51,34 +52,20 @@ router.post(
   create
 );
 
-router.put(
-  '/:id',
-  isAuthenticated,
-  updateFAQRules,
-  update
-);
-
-router.delete(
-  '/:id',
-  isAuthenticated,
-  (req, _res, next) => {
-    // Ensure the user owns the FAQ or is mod/admin
-    const { isModerator } = require('../middleware/auth');
-    // ownership check is in controller; middleware just enforces role for delete of others
-    next();
-  },
-  remove
-);
+// ── FAQ update & delete ────────────────────────────────────────────────────────
+router.put('/:id',            isAuthenticated, updateFAQRules,        update);
+router.delete('/:id',         isAuthenticated, ObjectIdParam('id'),   remove);
 
 // ── Votes ─────────────────────────────────────────────────────────────────────
-router.put('/:id/vote', isAuthenticated, voteFAQ);
+router.put('/:id/vote',       isAuthenticated, voteFAQ);
+router.put('/:id/answers/:aid/vote', isAuthenticated, voteAnswer);
 
 // ── Moderation (mod/admin only) ───────────────────────────────────────────────
-router.put('/:id/pin',   isAuthenticated, isModerator, togglePin);
-router.put('/:id/wiki',  isAuthenticated, isModerator, toggleWiki);
-router.put('/:id/status', isAuthenticated, isModerator, updateStatus);
+router.put('/:id/pin',        isAuthenticated, isModerator, ObjectIdParam('id'),  togglePin);
+router.put('/:id/wiki',       isAuthenticated, isModerator, ObjectIdParam('id'),  toggleWiki);
+router.put('/:id/status',     isAuthenticated, isModerator, ObjectIdParam('id'),  updateStatus);
 
-// ── Answers ───────────────────────────────────────────────────────────────────
+// ── Answers ────────────────────────────────────────────────────────────────────
 router.post(
   '/:id/answers',
   isAuthenticated,
@@ -94,21 +81,37 @@ router.put(
   updateAnswer
 );
 
-// Note: voteAnswer is a legacy endpoint — routed to voteFAQ for consistency
-router.put('/:id/answers/:aid/vote', isAuthenticated, voteFAQ);
-router.delete('/:id/answers/:aid',   isAuthenticated, deleteAnswer);
-router.put('/:id/answers/:aid/accept', isAuthenticated, acceptAnswer);
+router.delete(
+  '/:id/answers/:aid',
+  isAuthenticated,
+  ObjectIdParam('id'),
+  ObjectIdParam('aid'),
+  deleteAnswer
+);
 
-// ── Comments ──────────────────────────────────────────────────────────────────
+router.put(
+  '/:id/answers/:aid/accept',
+  isAuthenticated,
+  ObjectIdParam('id'),
+  ObjectIdParam('aid'),
+  acceptAnswer
+);
+
+// ── Comments ───────────────────────────────────────────────────────────────────
 router.post(
   '/:id/comments',
   isAuthenticated,
   addCommentRules,
   addComment
 );
-router.delete('/:id/comments/:cid', isAuthenticated, deleteComment);
+router.delete(
+  '/:id/comments/:cid',
+  isAuthenticated,
+  ObjectIdParam('id'),
+  deleteComment
+);
 
-// ── Reports ───────────────────────────────────────────────────────────────────
+// ── Reports ────────────────────────────────────────────────────────────────────
 router.post(
   '/:id/report',
   isAuthenticated,

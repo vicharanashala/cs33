@@ -1,4 +1,14 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
 /*
+ * Global reset + base + CSS custom properties
+ * ─────────────────────────────────────────────
+ * Variables are defined twice:
+ *   :root   → light mode (default)
+ *   html.dark → dark mode (class applied by ThemeContext to <html>)
+ *
  * Responsive breakpoints used throughout:
  *   Mobile  < 768px  (--bp-mobile)
  *   Tablet  768px–1279px (--bp-tablet)
@@ -9,69 +19,107 @@
  *   .page-content — max-w-5xl mx-auto px-4, centered column
  */
 
-:root {
-  --bg: #ffffff;
-  --surface: #f5f5f5;
-  --text: #111827;
-  --text-h: #08060d;
-  --text-muted: #6b7280;
-  --border: #e5e4e7;
-  --primary: #2563eb;
-  --code-bg: #f4f3ec;
-  --accent: #aa3bff;
-  --accent-bg: rgba(170, 59, 255, 0.1);
-  --accent-border: rgba(170, 59, 255, 0.5);
-  --social-bg: rgba(244, 243, 236, 0.5);
-  --shadow: 0 1px 3px rgba(0,0,0,.08), 0 1px 2px rgba(0,0,0,.06);
+/* ── Reset ─────────────────────────────────────────────────────────────────── */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
 
-  --sans: system-ui, 'Segoe UI', Roboto, sans-serif;
-  --heading: system-ui, 'Segoe UI', Roboto, sans-serif;
-  --mono: ui-monospace, Consolas, monospace;
+html {
+  scroll-behavior: smooth;
+  font-size: 18px;
+  -webkit-text-size-adjust: 100%;
+}
 
-  --bp-mobile:  767px;
-  --bp-tablet: 1279px;
-
-  font: 18px/145% var(--sans);
-  letter-spacing: 0.18px;
-  color-scheme: light dark;
-  color: var(--text);
+body {
+  min-height: 100dvh;
+  overflow-x: hidden;
   background: var(--bg);
+  color: var(--text);
+  transition:
+    background-color 0.2s ease,
+    color 0.2s ease;
+  font-family: var(--sans);
+  line-height: 145%;
+  letter-spacing: 0.18px;
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
 
-.dark {
-  --bg: #0f0f0f;
-  --surface: #1a1a1a;
-  --text: #f0f0f0;
-  --text-h: #f3f4f6;
-  --text-muted: #9ca3af;
-  --border: #2a2a2a;
-  --primary: #3b82f6;
-  --code-bg: #1f2028;
-  --accent: #c084fc;
-  --accent-bg: rgba(192, 132, 252, 0.15);
-  --accent-border: rgba(192, 132, 252, 0.5);
-  --social-bg: rgba(47, 48, 58, 0.5);
-  --shadow: 0 1px 3px rgba(0,0,0,.4), 0 1px 2px rgba(0,0,0,.3);
+/* ── Light mode vars (default) ─────────────────────────────────────────────── */
+:root {
+  --bg:            #ffffff;
+  --card-bg:       #ffffff;
+  --surface:       #f5f5f5;
+  --text:          #111827;
+  --text-h:        #08060d;
+  --text-muted:    #6b7280;
+  --ring-offset-bg:#f9fafb;
+  --border:        #e5e4e7;
+  --primary:       #2563eb;
+  --success:       #16a34a;
+  --error:         #dc2626;
+  --code-bg:       #f4f3ec;
+  --accent:        #aa3bff;
+  --accent-bg:     rgba(170, 59,  255, 0.10);
+  --accent-border: rgba(170, 59,  255, 0.50);
+  --social-bg:     rgba(244, 243, 236, 0.50);
+  --shadow-sm:     0 1px 3px rgba(0,0,0,.08), 0 1px 2px rgba(0,0,0,.06);
+  --shadow-md:     0 4px 12px rgba(0,0,0,.10), 0 2px 6px rgba(0,0,0,.08);
+  --overlay:       rgba(0, 0, 0, 0.50);
+  --nav-overlay:   rgba(0, 0, 0, 0.60);
+
+  --sans:    system-ui, 'Segoe UI', Roboto, sans-serif;
+  --heading: system-ui, 'Segoe UI', Roboto, sans-serif;
+  --mono:    ui-monospace, Consolas, monospace;
+
+  --bp-mobile:  767px;
+  --bp-tablet: 1279px;
+
+  color-scheme: light;
 }
 
-body {
-  margin: 0;
+/* ── Dark mode vars ─────────────────────────────────────────────────────────── */
+html.dark {
+  --bg:            #0f0f0f;
+  --card-bg:       #1a1a1a;
+  --surface:       #1a1a1a;
+  --text:          #f0f0f0;
+  --text-h:        #f3f4f6;
+  --text-muted:    #9ca3af;
+  --ring-offset-bg:#111827;
+  --border:        #2a2a2a;
+  --primary:       #3b82f6;
+  --success:       #22c55e;
+  --error:         #ef4444;
+  --code-bg:       #1f2028;
+  --accent:        #c084fc;
+  --accent-bg:     rgba(192, 132, 252, 0.15);
+  --accent-border: rgba(192, 132, 252, 0.50);
+  --social-bg:     rgba(47,  48,  58,  0.50);
+  --shadow-sm:     0 1px 3px rgba(0,0,0,.40), 0 1px 2px rgba(0,0,0,.30);
+  --shadow-md:     0 4px 12px rgba(0,0,0,.50), 0 2px 6px rgba(0,0,0,.40);
+  --overlay:       rgba(0, 0, 0, 0.70);
+  --nav-overlay:   rgba(0, 0, 0, 0.80);
+
+  color-scheme: dark;
 }
 
 #root {
-  max-width: 100%;
+  width: 100%;
   margin: 0 auto;
-  text-align: center;
-  min-height: 100svh;
+  text-align: left;
+  min-height: 100dvh;
   display: flex;
   flex-direction: column;
-  box-sizing: border-box;
 }
 
+/* ── Headings ───────────────────────────────────────────────────────────────── */
 h1,
 h2 {
   font-family: var(--heading);
@@ -84,12 +132,8 @@ h1 {
   letter-spacing: -1.68px;
   margin: 32px 0;
 }
-@media (max-width: 1024px) {
-  h1 { font-size: 36px; margin: 20px 0; }
-}
-@media (max-width: 767px) {
-  h1 { font-size: 28px; margin: 16px 0; }
-}
+@media (max-width: 1024px) { h1 { font-size: 36px; margin: 20px 0; } }
+@media (max-width:  767px) { h1 { font-size: 28px; margin: 16px 0; } }
 
 h2 {
   font-size: 24px;
@@ -97,12 +141,31 @@ h2 {
   letter-spacing: -0.24px;
   margin: 0 0 8px;
 }
-@media (max-width: 767px) {
-  h2 { font-size: 20px; }
+@media (max-width: 767px) { h2 { font-size: 20px; } }
+
+/* ── Inline elements ────────────────────────────────────────────────────────── */
+p     { margin: 0; }
+a     { color: inherit; }
+
+img {
+  max-width: 100%;
+  height: auto;
+  object-fit: cover;
+  object-position: center;
 }
 
-p {
-  margin: 0;
+/* All flex containers that may wrap children */
+.flex-wrap {
+  flex-wrap: wrap;
+}
+
+/*
+ * Grid columns: 0 minimum so content that doesn't fit gets clamped by 1fr.
+ * This prevents long unbreakable strings (urls, emails, slugs) from causing
+ * horizontal overflow even when the parent has overflow: hidden.
+ */
+[class*='grid-cols-'] > * {
+  min-width: 0;
 }
 
 code,
@@ -126,9 +189,15 @@ code {
   max-width: 680px;
   margin-inline: auto;
 }
-@media (min-width: 768px) {
-  .card {
-    /* keep centered with max-width */
+
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+@media (min-width: 640px) {
+  .stats-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 }
 
@@ -138,12 +207,8 @@ code {
   margin-inline: auto;
   padding-inline: 16px;
 }
-@media (min-width: 768px) {
-  .page-content { padding-inline: 24px; }
-}
-@media (min-width: 1280px) {
-  .page-content { max-width: 1280px; }
-}
+@media (min-width:  768px) { .page-content { padding-inline: 24px; } }
+@media (min-width: 1280px) { .page-content { max-width: 1280px; } }
 
 /* ── FAQ card — list item ───────────────────────────────────────────────────── */
 .faq-card {
@@ -155,15 +220,13 @@ code {
   padding: 16px;
   transition: box-shadow 0.2s, border-color 0.2s;
 }
-@media (min-width: 768px) {
-  .faq-card { padding: 20px; }
-}
+@media (min-width: 768px) { .faq-card { padding: 20px; } }
 .faq-card:hover {
-  box-shadow: var(--shadow);
+  box-shadow: var(--shadow-md);
   border-color: var(--primary);
 }
 
-/* ── Admin table → card list on mobile ──────────────────────────────────────── */
+/* ── Admin table → card list on mobile ─────────────────────────────────────── */
 .admin-table-row {
   display: flex;
   flex-direction: column;
@@ -179,11 +242,11 @@ code {
   }
 }
 
-/* ── Mobile bottom drawer overlay ───────────────────────────────────────────── */
+/* ── Mobile bottom drawer overlay ──────────────────────────────────────────── */
 .drawer-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.5);
+  background: var(--overlay);
   z-index: 100;
   display: flex;
   align-items: flex-end;
@@ -207,7 +270,7 @@ code {
   to   { opacity: 1; }
 }
 
-/* ── Floating vote bar (FAQ detail mobile) ──────────────────────────────────── */
+/* ── Floating vote bar (FAQ detail mobile) ─────────────────────────────────── */
 .floating-vote-bar {
   position: fixed;
   bottom: 0;
@@ -221,17 +284,15 @@ code {
   justify-content: center;
   gap: 24px;
   z-index: 40;
-  box-shadow: 0 -2px 12px rgba(0,0,0,0.08);
+  box-shadow: 0 -2px 12px var(--shadow-sm);
 }
-@media (min-width: 768px) {
-  .floating-vote-bar { display: none; }
-}
+@media (min-width: 768px) { .floating-vote-bar { display: none; } }
 
 /* ── Navbar mobile overlay ──────────────────────────────────────────────────── */
 .nav-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.6);
+  background: var(--nav-overlay);
   z-index: 200;
   display: flex;
   flex-direction: column;
@@ -254,10 +315,28 @@ code {
   font-size: 16px;
   font-weight: 500;
   color: var(--text);
-  transition: background 0.15s;
+  transition: background 0.15s, color 0.15s;
 }
 .nav-overlay-link:hover,
 .nav-overlay-link.active {
   background: var(--surface);
   color: var(--primary);
+}
+
+/*
+ * Dropdown panel: parent must have position:relative.
+ * The child with position:absolute uses top/right/z-index via inline styles
+ * or utility classes; this class provides the base rule.
+ */
+.dropdown-panel {
+  position: absolute;
+  z-index: 100;
+}
+
+/* Truncate elements inside flex/grid need min-width:0 to actually clamp */
+.truncate {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }

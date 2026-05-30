@@ -25,13 +25,10 @@ router.post('/:faqId', isAuthenticated, async (req, res, next) => {
     }
 
     await faq.save();
-    const target = answerId
-      ? faq.answers.id(answerId)
-      : faq;
 
-    res.json({ success: true, data: answerId ? faq : target });
+    return res.json({ success: true, message: 'Comment added' });
   } catch (err) {
-    next(err);
+    return next(err);
   }
 });
 

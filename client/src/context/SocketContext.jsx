@@ -4,6 +4,19 @@ import { useAuth } from './AuthContext';
 
 const SocketContext = createContext(null);
 
+const isValidToken = (token) => {
+  if (!token || typeof token !== 'string') return false;
+  const parts = token.split('.');
+  if (parts.length !== 3) return false;
+
+  try {
+    const payload = JSON.parse(atob(parts[1]));
+    return payload && typeof payload === 'object' && payload.exp * 1000 > Date.now();
+  } catch {
+    return false;
+  }
+};
+
 export const SocketProvider = ({ children }) => {
   const { user } = useAuth();
   const [socket, setSocket] = useState(null);
@@ -12,12 +25,15 @@ export const SocketProvider = ({ children }) => {
   useEffect(() => {
     if (!user) return;
 
-    const token = localStorage.getItem('token');
-    if (!token) return;
+    // Guard: don't double-connect if socket is already live
+    if (socket?.connected) return;
 
-    const sock = io(import.meta.env.VITE_SOCKET_URL, {
+    const token = localStorage.getItem('token');
+    if (!isValidToken(token)) return;
+
+    const sock = io(import.meta.env.VITE_SOCKET_URL || 'http://localhost:5000', {
       auth: { token },
-      transports: ['websocket', 'polling'],
+      transports: ['websocket'],
     });
 
     sock.on('connect', () => setConnected(true));

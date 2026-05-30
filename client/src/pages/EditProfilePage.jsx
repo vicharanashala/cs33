@@ -11,8 +11,8 @@ const Toggle = ({ checked, onChange, label }) => (
     role="switch"
     aria-checked={checked}
     onClick={() => onChange(!checked)}
-    className={`relative inline-flex h-6 w-11 flex-shrink-0 rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus-ring-2 focus-ring-blue-500 focus-ring-offset-2 ${
-      checked ? 'bg-blue-600' : 'bg-gray-200'
+    className={`relative inline-flex h-6 w-11 flex-shrink-0 rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus-ring-2 focus-ring-[var(--primary)] focus-ring-offset-[var(--ring-offset-bg)] ${
+      checked ? 'bg-[var(--primary)]' : 'bg-[var(--surface)]'
     }`}
   >
     <span className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
@@ -35,11 +35,10 @@ const EditProfilePage = () => {
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
 
   useEffect(() => {
-    if (user) {
-      setForm({ name: user.name || '', bio: user.bio || '', avatar: user.avatar || '' });
-      setNotifyOnAnswer(!!user.notifyOnAnswer);
-      setNotifyOnComment(!!user.notifyOnComment);
-    }
+    if (!user) return;
+    setForm({ name: user.name || '', bio: user.bio || '', avatar: user.avatar || '' });
+    setNotifyOnAnswer(!!user.notifyOnAnswer);
+    setNotifyOnComment(!!user.notifyOnComment);
   }, [user]);
 
   const set = (field, val) => setForm((f) => ({ ...f, [field]: val }));
@@ -50,17 +49,20 @@ const EditProfilePage = () => {
     if (file.size > 5 * 1024 * 1024) { toast.error('Max file size is 5MB'); return; }
     if (!file.type.startsWith('image/')) { toast.error('Only image files allowed'); return; }
     setUploadingAvatar(true);
+    let isMounted = true;
     try {
       const fd = new FormData();
       fd.append('image', file);
       const res = await upload.image(fd);
+      if (!isMounted) return;
       const url = res.data.url;
       setForm((f) => ({ ...f, avatar: url }));
       toast.success('Avatar uploaded!');
     } catch (err) {
+      if (!isMounted) return;
       toast.error(err.message || 'Upload failed');
     } finally {
-      setUploadingAvatar(false);
+      if (isMounted) setUploadingAvatar(false);
     }
   };
 
@@ -110,17 +112,17 @@ const EditProfilePage = () => {
 
   const PwField = ({ name, label }) => (
     <div>
-      <label className="block text-sm font-medium text-gray-700 mb-1.5">{label}</label>
+      <label className="block text-sm font-medium text-[var(--text)] mb-1.5">{label}</label>
       <div className="relative">
         <input
           type={showPw[name] ? 'text' : 'password'}
           value={passwords[name]}
           onChange={(e) => setPasswords((p) => ({ ...p, [name]: e.target.value }))}
-          className="w-full border border-gray-300 rounded-lg pl-4 pr-10 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-800"
+          className="w-full border border-[var(--border)] rounded-lg pl-4 pr-10 py-2.5 focus:outline-none focus:ring-2 focus:ring-[var(--primary)] text-[var(--text-h)]"
           autoComplete="new-password"
         />
         <button type="button" onClick={() => setShowPw((s) => ({ ...s, [name]: !s[name] }))}
-          className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
+          className="absolute right-3 top-1/2 -translate-y-1/2 text-[var(--text-muted)] hover:text-[var(--text-muted)]">
           {showPw[name] ? <EyeOff size={15} /> : <Eye size={15} />}
         </button>
       </div>
@@ -128,22 +130,22 @@ const EditProfilePage = () => {
   );
 
   return (
-    <div className="min-h-screen bg-gray-50 py-10 px-4">
+    <div className="min-h-screen bg-[var(--surface)] py-10 px-4">
       <div className="max-w-xl mx-auto space-y-6">
 
         {/* Header */}
         <div className="flex items-center gap-3">
-          <div className="w-9 h-9 bg-blue-100 rounded-full flex items-center justify-center">
-            <Camera size={18} className="text-blue-600" />
+          <div className="w-9 h-9 bg-[var(--primary)]/10 rounded-full flex items-center justify-center">
+            <Camera size={18} className="text-[var(--primary)]" />
           </div>
-          <h1 className="text-2xl font-bold text-gray-900">Edit Profile</h1>
+          <h1 className="text-2xl font-bold text-[var(--text-h)]">Edit Profile</h1>
         </div>
 
-        <form onSubmit={handleSubmit} noValidate className="bg-white rounded-2xl border border-gray-200 p-6 space-y-6">
+        <form onSubmit={handleSubmit} noValidate className="bg-white rounded-2xl border border-[var(--border)] p-6 space-y-6">
 
           {/* Avatar */}
           <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-3">Profile Photo</label>
+            <label className="block text-sm font-semibold text-[var(--text)] mb-3">Profile Photo</label>
             <div className="flex items-center gap-5">
               <div className="relative flex-shrink-0">
                 <img
@@ -163,59 +165,59 @@ const EditProfilePage = () => {
                   type="button"
                   onClick={() => fileRef.current?.click()}
                   disabled={uploadingAvatar}
-                  className="px-4 py-2 text-sm bg-gray-100 text-gray-700 font-medium rounded-lg hover:bg-gray-200 disabled:opacity-50 transition-colors"
+                  className="px-4 py-2 text-sm bg-[var(--surface)] text-[var(--text)] font-medium rounded-lg hover:bg-[var(--surface)] disabled:opacity-50 transition-colors"
                 >
                   {uploadingAvatar ? 'Uploading...' : 'Upload Photo'}
                 </button>
-                <p className="text-xs text-gray-400 mt-1.5">JPG, PNG, WebP — max 5MB</p>
+                <p className="text-xs text-[var(--text-muted)] mt-1.5">JPG, PNG, WebP — max 5MB</p>
               </div>
             </div>
           </div>
 
           {/* Name */}
           <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-1.5">Display Name</label>
+            <label className="block text-sm font-semibold text-[var(--text)] mb-1.5">Display Name</label>
             <input
               type="text"
               value={form.name}
               onChange={(e) => set('name', e.target.value)}
               minLength={2} maxLength={50}
-              className="w-full border border-gray-300 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-800"
+              className="w-full border border-[var(--border)] rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-[var(--primary)] text-[var(--text-h)]"
             />
           </div>
 
           {/* Bio */}
           <div>
             <div className="flex items-center justify-between mb-1.5">
-              <label className="text-sm font-semibold text-gray-700">Bio</label>
-              <span className="text-xs text-gray-400">{form.bio.length}/300</span>
+              <label className="text-sm font-semibold text-[var(--text)]">Bio</label>
+              <span className="text-xs text-[var(--text-muted)]">{form.bio.length}/300</span>
             </div>
             <textarea
               value={form.bio}
               onChange={(e) => set('bio', e.target.value)}
               rows={3} maxLength={300}
               placeholder="Tell the community about yourself..."
-              className="w-full border border-gray-300 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none text-gray-800"
+              className="w-full border border-[var(--border)] rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-[var(--primary)] resize-none text-[var(--text-h)]"
             />
           </div>
 
           {/* Notification preferences */}
-          <div className="border-t border-gray-100 pt-5">
-            <h3 className="text-sm font-semibold text-gray-700 mb-4 flex items-center gap-2">
+          <div className="border-t border-[var(--border)] pt-5">
+            <h3 className="text-sm font-semibold text-[var(--text)] mb-4 flex items-center gap-2">
               <Bell size={15} /> Notification Preferences
             </h3>
             <div className="space-y-3">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-gray-700">Notify on new answers</p>
-                  <p className="text-xs text-gray-400">Get notified when someone answers your questions</p>
+                  <p className="text-sm font-medium text-[var(--text)]">Notify on new answers</p>
+                  <p className="text-xs text-[var(--text-muted)]">Get notified when someone answers your questions</p>
                 </div>
                 <Toggle checked={notifyOnAnswer} onChange={setNotifyOnAnswer} />
               </div>
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-gray-700">Notify on comments</p>
-                  <p className="text-xs text-gray-400">Get notified on comments for your content</p>
+                  <p className="text-sm font-medium text-[var(--text)]">Notify on comments</p>
+                  <p className="text-xs text-[var(--text-muted)]">Get notified on comments for your content</p>
                 </div>
                 <Toggle checked={notifyOnComment} onChange={setNotifyOnComment} />
               </div>
@@ -227,13 +229,13 @@ const EditProfilePage = () => {
             <button
               type="submit"
               disabled={submitting}
-              className="flex items-center gap-2 px-6 py-2.5 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 disabled:opacity-60 disabled:cursor-not-allowed transition-colors"
+              className="flex items-center gap-2 px-6 py-2.5 bg-[var(--primary)] text-white font-semibold rounded-lg hover:opacity-90 disabled:opacity-60 disabled:cursor-not-allowed transition-colors"
             >
               {submitting && <Loader2 size={15} className="animate-spin" />}
               {submitting ? 'Saving...' : 'Save Changes'}
             </button>
             <button type="button" onClick={() => navigate(-1)}
-              className="px-6 py-2.5 bg-gray-100 text-gray-600 font-semibold rounded-lg hover:bg-gray-200 transition-colors">
+              className="px-6 py-2.5 bg-[var(--surface)] text-[var(--text-muted)] font-semibold rounded-lg hover:bg-[var(--surface)] transition-colors">
               Cancel
             </button>
           </div>
@@ -241,8 +243,8 @@ const EditProfilePage = () => {
 
         {/* Change password */}
         <form onSubmit={handlePasswordChange} noValidate
-          className="bg-white rounded-2xl border border-gray-200 p-6 space-y-5">
-          <h3 className="text-sm font-semibold text-gray-700 flex items-center gap-2">
+          className="bg-white rounded-2xl border border-[var(--border)] p-6 space-y-5">
+          <h3 className="text-sm font-semibold text-[var(--text)] flex items-center gap-2">
             <Lock size={15} /> Change Password
           </h3>
 
@@ -252,7 +254,7 @@ const EditProfilePage = () => {
 
           <div className="flex items-center gap-3">
             <button type="submit" disabled={submitting}
-              className="flex items-center gap-2 px-5 py-2 text-sm border border-gray-300 text-gray-600 font-medium rounded-lg hover:bg-gray-50 disabled:opacity-60 disabled:cursor-not-allowed transition-colors">
+              className="flex items-center gap-2 px-5 py-2 text-sm border border-[var(--border)] text-[var(--text-muted)] font-medium rounded-lg hover:bg-[var(--surface)] disabled:opacity-60 disabled:cursor-not-allowed transition-colors">
               {submitting ? <Loader2 size={13} className="animate-spin" /> : <Lock size={13} />}
               Update Password
             </button>

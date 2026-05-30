@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { io } from 'socket.io-client';
 import ReactMarkdown from 'react-markdown';
-import { formatDistanceToNow } from 'timeago.js';
+import { format } from 'timeago.js';
 import {
   ChevronUp, ChevronDown, Bookmark, BookmarkCheck, Flag, Edit2, Trash2,
   CheckCircle, MessageSquare, Eye, AlertTriangle, X, Send,
@@ -43,13 +43,13 @@ const VoteButtons = ({ votes, voters, onVote, disabled }) => {
       >
         <ChevronUp size={22} strokeWidth={2.5} />
       </button>
-      <span className={`font-bold text-sm ${userVote !== 0 ? (userVote === 1 ? 'text-[var(--primary)]' : 'text-red-500') : 'text-[var(--text)]'}`}>
+      <span className={`font-bold text-sm ${userVote !== 0 ? (userVote === 1 ? 'text-[var(--primary)]' : 'text-[var(--error)]') : 'text-[var(--text)]'}`}>
         {votes || 0}
       </span>
       <button
         onClick={() => onVote(-1)}
         disabled={disabled}
-        className={`p-1 rounded hover:bg-[var(--surface)] transition-colors ${userVote === -1 ? 'text-red-500' : 'text-[var(--text-muted)]'} ${disabled ? 'opacity-40 cursor-not-allowed' : ''}`}
+        className={`p-1 rounded hover:bg-[var(--surface)] transition-colors ${userVote === -1 ? 'text-[var(--error)]' : 'text-[var(--text-muted)]'} ${disabled ? 'opacity-40 cursor-not-allowed' : ''}`}
       >
         <ChevronDown size={22} strokeWidth={2.5} />
       </button>
@@ -58,19 +58,19 @@ const VoteButtons = ({ votes, voters, onVote, disabled }) => {
 };
 
 const Comment = ({ comment, onDelete, canDelete }) => (
-  <div className="flex gap-2 py-2 border-t border-gray-100">
-    <img src={getAvatarUrl(comment.author)} className="w-6 h-6 rounded-full mt-0.5 flex-shrink-0" alt="" />
+  <div className="flex gap-2 py-2 border-t border-[var(--border)]">
+    <img src={getAvatarUrl(comment.author)} className="w-6 h-6 rounded-full mt-0.5 flex-shrink-0 object-cover" alt="" />
     <div className="flex-1 min-w-0">
       <div className="flex items-center gap-2">
-        <span className="text-sm font-medium text-gray-800">{comment.author?.name}</span>
-        <span className="text-xs text-gray-400">{formatDistanceToNow(new Date(comment.createdAt), { locale: 'en' })}</span>
+        <span className="text-sm font-medium text-[var(--text)]">{comment.author?.name}</span>
+        <span className="text-xs text-[var(--text-muted)]">{format(new Date(comment.createdAt), { locale: 'en' })}</span>
         {canDelete && (
-          <button onClick={() => onDelete(comment._id)} className="ml-auto text-gray-300 hover:text-red-400 transition-colors">
+          <button onClick={() => onDelete(comment._id)} className="ml-auto text-[var(--text-muted)] hover:text-[var(--error)] transition-colors">
             <X size={12} />
           </button>
         )}
       </div>
-      <p className="text-sm text-gray-600 mt-0.5">{comment.body}</p>
+      <p className="text-sm text-[var(--text-muted)] mt-0.5">{comment.body}</p>
     </div>
   </div>
 );
@@ -86,18 +86,24 @@ const AnswerCard = ({ answer, faqAuthorId, currentUser, onVote, onAccept, onDele
   const handleComment = async () => {
     if (!commentText.trim()) return;
     setSubmitting(true);
+    let isMounted = true;
     try {
       await onAddComment(answer._id, commentText.trim());
+      if (!isMounted) return;
       setCommentText('');
       setShowCommentInput(false);
-    } catch {}
-    setSubmitting(false);
+    } catch (err) {
+      if (!isMounted) return;
+      toast.error(err.message || 'Failed to add comment');
+    } finally {
+      if (isMounted) setSubmitting(false);
+    }
   };
 
   return (
-    <div className={`bg-white border rounded-lg p-5 ${answer.isAccepted ? 'border-green-300 bg-green-50/30' : 'border-gray-200'}`}>
+    <div className={`bg-[var(--card-bg)] border rounded-lg p-5 ${answer.isAccepted ? 'border-[var(--success)] bg-[var(--success)]/10' : 'border-[var(--border)]'}`}>
       {answer.isAccepted && (
-        <div className="flex items-center gap-1 text-green-600 text-xs font-semibold mb-3">
+        <div className="flex items-center gap-1 text-[var(--success)] text-xs font-semibold mb-3">
           <CheckCircle size={14} /> Accepted Answer
         </div>
       )}
@@ -111,19 +117,19 @@ const AnswerCard = ({ answer, faqAuthorId, currentUser, onVote, onAccept, onDele
         />
 
         <div className="flex-1 min-w-0">
-          <ReactMarkdown className="prose prose-sm max-w-none text-gray-700 mb-4">{answer.body}</ReactMarkdown>
+          <ReactMarkdown className="prose prose-sm max-w-none text-[var(--text)] mb-4">{answer.body}</ReactMarkdown>
 
           <div className="flex items-center justify-between flex-wrap gap-2">
             <div className="flex items-center gap-2">
-              <img src={getAvatarUrl(answer.author)} className="w-7 h-7 rounded-full" alt="" />
+              <img src={getAvatarUrl(answer.author)} className="w-7 h-7 rounded-full object-cover" alt="" />
               <div className="text-sm">
-                <span className="font-medium text-gray-800">{answer.author?.name}</span>
+                <span className="font-medium text-[var(--text)]">{answer.author?.name}</span>
                 {answer.author?.reputation != null && (
-                  <span className="text-gray-400 text-xs ml-1">★ {answer.author.reputation}</span>
+                  <span className="text-[var(--text-muted)] text-xs ml-1">★ {answer.author.reputation}</span>
                 )}
               </div>
-              <span className="text-xs text-gray-400">
-                {formatDistanceToNow(new Date(answer.createdAt), { locale: 'en' })}
+              <span className="text-xs text-[var(--text-muted)]">
+                {format(new Date(answer.createdAt), { locale: 'en' })}
               </span>
             </div>
 
@@ -131,16 +137,16 @@ const AnswerCard = ({ answer, faqAuthorId, currentUser, onVote, onAccept, onDele
               {user && faqAuthorId && (user.id === faqAuthorId || user._id === faqAuthorId) && !answer.isAccepted && (
                 <button
                   onClick={() => onAccept(answer._id)}
-                  className="flex items-center gap-1 text-xs text-green-600 hover:text-green-700 font-medium transition-colors"
+                  className="flex items-center gap-1 text-xs text-[var(--success)] hover:text-[var(--success)] font-medium transition-colors"
                 >
                   <CheckCircle size={13} /> Accept
                 </button>
               )}
               {canEdit && (
-                <button className="text-gray-400 hover:text-blue-500 transition-colors"><Edit2 size={13} /></button>
+                <button className="text-[var(--text-muted)] hover:text-[var(--primary)] transition-colors"><Edit2 size={13} /></button>
               )}
               {canDelete && (
-                <button onClick={() => onDelete(answer._id)} className="text-gray-400 hover:text-red-500 transition-colors">
+                <button onClick={() => onDelete(answer._id)} className="text-[var(--text-muted)] hover:text-[var(--error)] transition-colors">
                   <Trash2 size={13} />
                 </button>
               )}
@@ -149,7 +155,7 @@ const AnswerCard = ({ answer, faqAuthorId, currentUser, onVote, onAccept, onDele
 
           {/* Comments */}
           {answer.comments?.length > 0 && (
-            <div className="mt-3 border-t border-gray-100 pt-2">
+            <div className="mt-3 border-t border-[var(--border)] pt-2">
               {answer.comments.map((c) => (
                 <Comment
                   key={c._id}
@@ -163,11 +169,11 @@ const AnswerCard = ({ answer, faqAuthorId, currentUser, onVote, onAccept, onDele
 
           {/* Add comment */}
           {user && (
-            <div className="mt-3 border-t border-gray-100 pt-2">
+            <div className="mt-3 border-t border-[var(--border)] pt-2">
               {!showCommentInput ? (
                 <button
                   onClick={() => setShowCommentInput(true)}
-                  className="text-xs text-blue-600 hover:underline flex items-center gap-1"
+                  className="text-xs text-[var(--primary)] hover:underline flex items-center gap-1"
                 >
                   <MessageSquare size={12} /> Add a comment
                 </button>
@@ -179,12 +185,12 @@ const AnswerCard = ({ answer, faqAuthorId, currentUser, onVote, onAccept, onDele
                     placeholder="Write a comment..."
                     maxLength={500}
                     rows={2}
-                    className="flex-1 text-sm border border-gray-300 rounded p-2 resize-none focus:outline-none focus:ring-1 focus:ring-blue-500"
+                    className="flex-1 text-sm border border-[var(--border)] rounded p-2 resize-none focus:outline-none focus:ring-1 focus:ring-[var(--primary)]"
                   />
                   <button
                     onClick={handleComment}
                     disabled={submitting || !commentText.trim()}
-                    className="p-2 text-blue-600 hover:bg-blue-50 rounded disabled:opacity-40 transition-colors"
+                    className="p-2 text-[var(--primary)] hover:bg-[var(--primary)]/10 rounded disabled:opacity-40 transition-colors"
                   >
                     <Send size={14} />
                   </button>
@@ -268,6 +274,12 @@ const FAQDetailPage = () => {
 
     return () => {
       socket.emit('faq:leave', id);
+      socket.off('connect');
+      socket.off('faq:voted');
+      socket.off('faq:newAnswer');
+      socket.off('faq:answerVoted');
+      socket.off('answer:accepted');
+      socket.off('disconnect');
       socket.disconnect();
     };
   }, [id]);
@@ -414,26 +426,29 @@ const FAQDetailPage = () => {
       return;
     }
     setSubmittingAnswer(true);
+    let isMounted = true;
     try {
       const res = await faqs.addAnswer(faq._id, { body: answerBody.trim() });
+      if (!isMounted) return;
       const newAnswer = res.data.data;
       setFaq((prev) => prev ? { ...prev, answers: [...(prev.answers || []), newAnswer] } : prev);
       setAnswerBody('');
       toast.success('Answer posted!');
     } catch (err) {
+      if (!isMounted) return;
       toast.error(err.message);
     } finally {
-      setSubmittingAnswer(false);
+      if (isMounted) setSubmittingAnswer(false);
     }
   };
 
   if (loading) {
     return (
       <div className="max-w-5xl mx-auto px-4 py-10 space-y-4">
-        <div className="h-8 bg-gray-200 rounded w-2/3 animate-pulse" />
-        <div className="h-4 bg-gray-100 rounded w-1/3 animate-pulse" />
-        <div className="h-32 bg-gray-100 rounded animate-pulse mt-6" />
-        <div className="h-20 bg-gray-100 rounded animate-pulse" />
+        <div className="h-8 bg-[var(--surface)] rounded w-2/3 animate-pulse" />
+        <div className="h-4 bg-[var(--surface)] rounded w-1/3 animate-pulse" />
+        <div className="h-32 bg-[var(--surface)] rounded animate-pulse mt-6" />
+        <div className="h-20 bg-[var(--surface)] rounded animate-pulse" />
       </div>
     );
   }
@@ -441,8 +456,8 @@ const FAQDetailPage = () => {
   if (error || !faq) {
     return (
       <div className="max-w-3xl mx-auto px-4 py-20 text-center">
-        <p className="text-red-500 font-medium">{error || 'FAQ not found'}</p>
-        <Link to="/faqs" className="text-blue-600 hover:underline mt-3 inline-block">← Back to FAQs</Link>
+        <p className="text-[var(--error)] font-medium">{error || 'FAQ not found'}</p>
+        <Link to="/faqs" className="text-[var(--primary)] hover:underline mt-3 inline-block">← Back to FAQs</Link>
       </div>
     );
   }
@@ -477,20 +492,20 @@ const FAQDetailPage = () => {
               disabled={!user}
             />
             <div className="flex-1 min-w-0">
-              <h1 className="text-2xl font-bold text-gray-900 leading-snug">{faq.question}</h1>
-              <div className="flex items-center gap-3 mt-2 text-sm text-gray-400 flex-wrap">
+              <h1 className="text-2xl font-bold text-[var(--text-h)] leading-snug">{faq.question}</h1>
+              <div className="flex items-center gap-3 mt-2 text-sm text-[var(--text-muted)] flex-wrap">
                 <span className="flex items-center gap-1">
-                  <img src={getAvatarUrl(faq.author)} className="w-6 h-6 rounded-full" alt="" />
-                  <span className="text-gray-600 font-medium">{faq.author?.name}</span>
+                  <img src={getAvatarUrl(faq.author)} className="w-6 h-6 rounded-full object-cover" alt="" />
+                  <span className="text-[var(--text-muted)] font-medium">{faq.author?.name}</span>
                   {faq.author?.reputation != null && <span className="text-yellow-500">★ {faq.author.reputation}</span>}
                 </span>
-                <span>{formatDistanceToNow(new Date(faq.createdAt), { locale: 'en' })}</span>
+                <span>{format(new Date(faq.createdAt), { locale: 'en' })}</span>
                 <span className="flex items-center gap-0.5"><Eye size={13} /> {faq.views || 0} views</span>
                 <span className="flex items-center gap-0.5"><MessageSquare size={13} /> {faq.answers?.length || 0} answers</span>
               </div>
 
               {faq.body && (
-                <div className="mt-4 prose prose-blue max-w-none text-gray-700">
+                <div className="mt-4 prose prose-blue max-w-none text-[var(--text)]">
                   <ReactMarkdown>{faq.body}</ReactMarkdown>
                 </div>
               )}
@@ -498,11 +513,11 @@ const FAQDetailPage = () => {
               {/* Tags, category, wiki */}
               <div className="flex flex-wrap items-center gap-2 mt-4">
                 {faq.tags?.map((t) => (
-                  <Link key={t} to={`/faqs?tag=${t}`} className="px-2.5 py-0.5 bg-gray-100 text-gray-600 text-xs rounded-full hover:bg-gray-200 transition-colors">
+                  <Link key={t} to={`/faqs?tag=${t}`} className="px-2.5 py-0.5 bg-[var(--surface)] text-[var(--text-muted)] text-xs rounded-full hover:bg-[var(--border)] transition-colors">
                     {t}
                   </Link>
                 ))}
-                <span className="px-2.5 py-0.5 bg-blue-50 text-blue-600 text-xs rounded-full capitalize font-medium">{faq.category}</span>
+                <span className="px-2.5 py-0.5 bg-[var(--primary)]/10 text-[var(--primary)] text-xs rounded-full capitalize font-medium">{faq.category}</span>
                 {faq.isCommunityWiki && (
                   <span className="px-2.5 py-0.5 bg-purple-50 text-purple-600 text-xs rounded-full font-medium">Wiki</span>
                 )}
@@ -514,7 +529,7 @@ const FAQDetailPage = () => {
                   <button
                     onClick={handleSave}
                     className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-sm transition-colors ${
-                      saved ? 'bg-blue-50 border-blue-300 text-blue-600' : 'border-gray-300 text-gray-500 hover:bg-gray-50'
+                      saved ? 'bg-[var(--primary)]/10 border-[var(--primary)] text-[var(--primary)]' : 'border-[var(--border)] text-[var(--text-muted)] hover:bg-[var(--surface)]'
                     }`}
                   >
                     {saved ? <BookmarkCheck size={15} /> : <Bookmark size={15} />}
@@ -524,16 +539,16 @@ const FAQDetailPage = () => {
                 <ShareButton question={faq?.question} faqId={faq?._id} />
                 <button
                   onClick={() => setShowReport((s) => !s)}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-gray-300 text-gray-500 text-sm hover:bg-gray-50 transition-colors"
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-[var(--border)] text-[var(--text-muted)] text-sm hover:bg-[var(--surface)] transition-colors"
                 >
                   <Flag size={14} /> Report
                 </button>
                 {canEdit && (
                   <>
-                    <Link to={`/faqs/${faq._id}/edit`} className="flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-gray-300 text-gray-500 text-sm hover:bg-gray-50 transition-colors">
+                    <Link to={`/faqs/${faq._id}/edit`} className="flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-[var(--border)] text-[var(--text-muted)] text-sm hover:bg-[var(--surface)] transition-colors">
                       <Edit2 size={14} /> Edit
                     </Link>
-                    <button onClick={() => { if (confirm('Delete this FAQ?')) navigate(`/faqs`); }} className="flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-red-200 text-red-500 text-sm hover:bg-red-50 transition-colors">
+                    <button onClick={() => { if (confirm('Delete this FAQ?')) navigate(`/faqs`); }} className="flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-[var(--error)]/30 text-[var(--error)] text-sm hover:bg-[var(--error)]/10 transition-colors">
                       <Trash2 size={14} /> Delete
                     </button>
                   </>
@@ -542,12 +557,12 @@ const FAQDetailPage = () => {
 
               {/* Report form */}
               {showReport && (
-                <form onSubmit={handleReport} className="mt-4 p-4 border border-yellow-200 bg-yellow-50 rounded-lg max-w-sm">
-                  <h4 className="font-semibold text-sm text-gray-700 mb-2 flex items-center gap-1"><AlertTriangle size={14} /> Report Content</h4>
+                <form onSubmit={handleReport} className="mt-4 p-4 border border-yellow-500/30 bg-yellow-500/10 rounded-lg max-w-sm">
+                  <h4 className="font-semibold text-sm text-[var(--text)] mb-2 flex items-center gap-1"><AlertTriangle size={14} /> Report Content</h4>
                   <select
                     value={reportReason}
                     onChange={(e) => setReportReason(e.target.value)}
-                    className="w-full border border-gray-300 rounded p-2 text-sm mb-2 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                    className="w-full border border-[var(--border)] rounded p-2 text-sm mb-2 focus:outline-none focus:ring-1 focus:ring-[var(--primary)]"
                     required
                   >
                     <option value="">Select a reason...</option>
@@ -559,13 +574,13 @@ const FAQDetailPage = () => {
                     placeholder="Additional details (optional)"
                     rows={2}
                     maxLength={500}
-                    className="w-full border border-gray-300 rounded p-2 text-sm mb-2 resize-none focus:outline-none focus:ring-1 focus:ring-blue-500"
+                    className="w-full border border-[var(--border)] rounded p-2 text-sm mb-2 resize-none focus:outline-none focus:ring-1 focus:ring-[var(--primary)]"
                   />
                   <div className="flex gap-2">
-                    <button type="submit" disabled={submittingReport} className="px-3 py-1.5 bg-red-500 text-white text-sm rounded hover:bg-red-600 disabled:opacity-50 transition-colors">
+                    <button type="submit" disabled={submittingReport} className="px-3 py-1.5 bg-[var(--error)] text-white text-sm rounded hover:opacity-90 disabled:opacity-50 transition-colors">
                       {submittingReport ? 'Submitting...' : 'Submit Report'}
                     </button>
-                    <button type="button" onClick={() => setShowReport(false)} className="px-3 py-1.5 bg-gray-200 text-gray-600 text-sm rounded hover:bg-gray-300 transition-colors">
+                    <button type="button" onClick={() => setShowReport(false)} className="px-3 py-1.5 bg-[var(--surface)] text-[var(--text-muted)] text-sm rounded hover:bg-[var(--border)] transition-colors">
                       Cancel
                     </button>
                   </div>
@@ -576,7 +591,7 @@ const FAQDetailPage = () => {
 
           {/* Answers */}
           <div className="mt-8">
-            <h2 className="text-xl font-bold text-gray-800 mb-4">
+            <h2 className="text-xl font-bold text-[var(--text-h)] mb-4">
               {faq.answers?.length || 0} {faq.answers?.length === 1 ? 'Answer' : 'Answers'}
             </h2>
             <div className="space-y-4">
@@ -606,23 +621,23 @@ const FAQDetailPage = () => {
                 placeholder="Write your answer... (min 30 characters)"
                 rows={6}
                 maxLength={5000}
-                className="w-full border border-gray-300 rounded-lg p-3 resize-none focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm text-gray-700"
+                className="w-full border border-[var(--border)] rounded-lg p-3 resize-none focus:outline-none focus:ring-2 focus:ring-[var(--primary)] text-sm text-[var(--text)]"
               />
               <div className="flex items-center justify-between mt-2">
-                <span className="text-xs text-gray-400">{answerBody.length} / 5000 · min 30</span>
+                <span className="text-xs text-[var(--text-muted)]">{answerBody.length} / 5000 · min 30</span>
                 <button
                   type="submit"
                   disabled={submittingAnswer || answerBody.trim().length < 30}
-                  className="px-5 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors"
+                  className="px-5 py-2 bg-[var(--primary)] text-white text-sm font-medium rounded-lg hover:opacity-90 disabled:opacity-50 transition-colors"
                 >
                   {submittingAnswer ? 'Posting...' : 'Post Answer'}
                 </button>
               </div>
             </form>
           ) : (
-            <div className="mt-8 text-center py-6 bg-gray-50 rounded-lg border border-gray-200">
-              <p className="text-gray-500 text-sm">
-                <Link to="/login" state={{ from: location }} className="text-blue-600 hover:underline font-medium">Login</Link>
+            <div className="mt-8 text-center py-6 bg-[var(--surface)] rounded-lg border border-[var(--border)]">
+              <p className="text-[var(--text-muted)] text-sm">
+                <Link to="/login" state={{ from: location }} className="text-[var(--primary)] hover:underline font-medium">Login</Link>
                 {' '}to post an answer
               </p>
             </div>
@@ -632,11 +647,11 @@ const FAQDetailPage = () => {
         {/* Sidebar — related FAQs */}
         {faq.relatedFAQs?.length > 0 && (
           <aside className="hidden lg:block w-64 flex-shrink-0">
-            <h3 className="font-semibold text-gray-700 mb-3 text-sm">Related FAQs</h3>
+            <h3 className="font-semibold text-[var(--text)] mb-3 text-sm">Related FAQs</h3>
             <div className="space-y-2">
               {faq.relatedFAQs.map((related) => (
                 <Link key={related._id} to={`/faqs/${related._id}`}
-                  className="block text-sm text-blue-600 hover:text-blue-800 hover:underline line-clamp-2">
+                  className="block text-sm text-[var(--primary)] hover:text-[var(--primary)] hover:underline line-clamp-2">
                   {related.question}
                 </Link>
               ))}

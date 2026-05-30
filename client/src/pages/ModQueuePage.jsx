@@ -1,9 +1,9 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { formatDistanceToNow } from 'timeago.js';
+import { format } from 'timeago.js';
 import {
   Flag, CheckCircle, XCircle, Clock, AlertTriangle, Eye,
-  MessageSquare, Loader2, ChevronDown, Ban,
+  MessageSquare, Loader2, ChevronDown, Ban, Shield,
 } from 'lucide-react';
 import { faqs } from '../services/api';
 import { getReports, reviewReport } from '../services/api';
@@ -15,28 +15,28 @@ const RejectModal = ({ faq, onConfirm, onCancel }) => {
   return (
     <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
       <div className="bg-white rounded-xl shadow-xl w-full max-w-md mx-4 p-6">
-        <h3 className="text-lg font-bold text-gray-900 mb-1">Reject FAQ</h3>
-        <p className="text-sm text-gray-500 mb-4">"{faq.question}"</p>
-        <label className="block text-sm font-medium text-gray-700 mb-1.5">
-          Rejection reason <span className="text-red-400">*</span>
+        <h3 className="text-lg font-bold text-[var(--text-h)] mb-1">Reject FAQ</h3>
+        <p className="text-sm text-[var(--text-muted)] mb-4">"{faq.question}"</p>
+        <label className="block text-sm font-medium text-[var(--text)] mb-1.5">
+          Rejection reason <span className="text-[var(--error)]">*</span>
         </label>
         <textarea
           value={reason}
           onChange={(e) => setReason(e.target.value)}
           rows={3}
           placeholder="Explain why this FAQ is being rejected..."
-          className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-400 resize-none"
+          className="w-full border border-[var(--border)] rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-400 resize-none"
         />
         <div className="flex items-center gap-3 mt-4">
           <button
             onClick={() => onConfirm(faq._id, reason)}
             disabled={!reason.trim()}
-            className="px-4 py-2 bg-red-600 text-white text-sm font-semibold rounded-lg hover:bg-red-700 disabled:opacity-50 transition-colors"
+            className="px-4 py-2 bg-[var(--error)] text-white text-sm font-semibold rounded-lg hover:opacity-90 disabled:opacity-50 transition-colors"
           >
             Confirm Rejection
           </button>
           <button onClick={onCancel}
-            className="px-4 py-2 bg-gray-100 text-gray-600 text-sm font-medium rounded-lg hover:bg-gray-200 transition-colors">
+            className="px-4 py-2 bg-[var(--surface)] text-[var(--text-muted)] text-sm font-medium rounded-lg hover:bg-[var(--surface)] transition-colors">
             Cancel
           </button>
         </div>
@@ -81,47 +81,47 @@ const FAQRow = ({ faq, onApprove, onReject }) => {
 
   return (
     <>
-      <div className="bg-white border border-gray-200 rounded-xl p-4 hover:shadow-sm transition-shadow">
+      <div className="bg-white border border-[var(--border)] rounded-xl p-4 hover:shadow-sm transition-shadow">
         <div className="flex items-start justify-between gap-4">
           <div className="min-w-0 flex-1">
             <Link to={`/faqs/${faq._id}`} target="_blank"
-              className="font-semibold text-gray-900 hover:text-blue-600 transition-colors line-clamp-2">
+              className="font-semibold text-[var(--text-h)] hover:text-[var(--primary)] transition-colors line-clamp-2">
               {faq.question}
             </Link>
-            <div className="flex items-center gap-3 mt-1.5 text-xs text-gray-400 flex-wrap">
+            <div className="flex items-center gap-3 mt-1.5 text-xs text-[var(--text-muted)] flex-wrap">
               <span className="flex items-center gap-1">
                 <img src={faq.author?.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(faq.author?.name || 'U')}&size=16`}
                   alt="" className="w-4 h-4 rounded-full" />
                 {faq.author?.name || 'Unknown'}
               </span>
               <span className="flex items-center gap-1"><Clock size={11} />
-                {faq.createdAt ? formatDistanceToNow(new Date(faq.createdAt), { locale: 'en' }) : 'recently'}
+                {faq.createdAt ? format(new Date(faq.createdAt), { locale: 'en' }) : 'recently'}
               </span>
-              {faq.category && <span className="capitalize px-2 py-0.5 bg-gray-100 rounded-full">{faq.category}</span>}
+              {faq.category && <span className="capitalize px-2 py-0.5 bg-[var(--surface)] rounded-full">{faq.category}</span>}
               {faq.tags?.map((t) => (
-                <span key={t} className="px-2 py-0.5 bg-blue-50 text-blue-600 rounded-full text-[10px]">{t}</span>
+                <span key={t} className="px-2 py-0.5 bg-[var(--primary)]/10 text-[var(--primary)] rounded-full text-[10px]">{t}</span>
               ))}
             </div>
           </div>
 
           <div className="flex items-center gap-2 flex-shrink-0">
             <Link to={`/faqs/${faq._id}`} target="_blank"
-              className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+              className="p-1.5 text-[var(--text-muted)] hover:text-[var(--primary)] hover:bg-[var(--primary)]/10 rounded-lg transition-colors"
               title="Preview">
               <Eye size={15} />
             </Link>
             <button onClick={handleApprove}
-              className="flex items-center gap-1 px-3 py-1.5 text-xs font-semibold text-green-700 bg-green-50 border border-green-200 rounded-lg hover:bg-green-100 transition-colors"
+              className="flex items-center gap-1 px-3 py-1.5 text-xs font-semibold text-[var(--success)] bg-[var(--success)]/10 border border-[var(--success)] rounded-lg hover:bg-[var(--success)]/10 transition-colors"
               title="Approve">
               <CheckCircle size={13} /> Approve
             </button>
             <button onClick={() => setRejectOpen(true)}
-              className="flex items-center gap-1 px-3 py-1.5 text-xs font-semibold text-red-600 bg-red-50 border border-red-200 rounded-lg hover:bg-red-100 transition-colors"
+              className="flex items-center gap-1 px-3 py-1.5 text-xs font-semibold text-[var(--error)] bg-[var(--error)]/10 border border-[var(--error)] rounded-lg hover:bg-[var(--error)]/10 transition-colors"
               title="Reject">
               <XCircle size={13} /> Reject
             </button>
             <button onClick={handleClose}
-              className="flex items-center gap-1 px-3 py-1.5 text-xs font-semibold text-gray-600 bg-gray-100 border border-gray-200 rounded-lg hover:bg-gray-200 transition-colors"
+              className="flex items-center gap-1 px-3 py-1.5 text-xs font-semibold text-[var(--text-muted)] bg-[var(--surface)] border border-[var(--border)] rounded-lg hover:bg-[var(--surface)] transition-colors"
               title="Close">
               <Ban size={13} /> Close
             </button>
@@ -158,15 +158,15 @@ const ReportRow = ({ report, onAction, onDismiss }) => {
   };
 
   const REASON_COLORS = {
-    spam:        'bg-gray-100 text-gray-700',
+    spam:        'bg-[var(--surface)] text-[var(--text)]',
     inappropriate: 'bg-orange-100 text-orange-700',
-    duplicate:   'bg-blue-100 text-blue-700',
-    off_topic:   'bg-purple-100 text-purple-700',
-    other:       'bg-gray-100 text-gray-600',
+    duplicate:   'bg-[var(--primary)]/10 text-[var(--primary)]',
+    off_topic:   'bg-[var(--accent)]/10 text-purple-700',
+    other:       'bg-[var(--surface)] text-[var(--text-muted)]',
   };
 
   return (
-    <div className="bg-white border border-gray-200 rounded-xl p-4 hover:shadow-sm transition-shadow">
+    <div className="bg-white border border-[var(--border)] rounded-xl p-4 hover:shadow-sm transition-shadow">
       <div className="flex items-start justify-between gap-4">
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2 mb-1.5">
@@ -182,11 +182,11 @@ const ReportRow = ({ report, onAction, onDismiss }) => {
             )}
           </div>
           {report.details && (
-            <p className="text-sm text-gray-600 line-clamp-2 mb-2">{report.details}</p>
+            <p className="text-sm text-[var(--text-muted)] line-clamp-2 mb-2">{report.details}</p>
           )}
-          <div className="flex items-center gap-3 text-xs text-gray-400">
-            <span>Reported by <strong className="text-gray-600">{report.reporter?.name || 'Unknown'}</strong></span>
-            <span>{report.createdAt ? formatDistanceToNow(new Date(report.createdAt), { locale: 'en' }) : ''}</span>
+          <div className="flex items-center gap-3 text-xs text-[var(--text-muted)]">
+            <span>Reported by <strong className="text-[var(--text-muted)]">{report.reporter?.name || 'Unknown'}</strong></span>
+            <span>{report.createdAt ? format(new Date(report.createdAt), { locale: 'en' }) : ''}</span>
             {report.targetType && (
               <span className="capitalize">on {report.targetType}</span>
             )}
@@ -196,18 +196,18 @@ const ReportRow = ({ report, onAction, onDismiss }) => {
         <div className="flex flex-col items-end gap-2 flex-shrink-0">
           {report.faqId && (
             <Link to={`/faqs/${report.faqId}`} target="_blank"
-              className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-blue-600 bg-blue-50 border border-blue-200 rounded-lg hover:bg-blue-100 transition-colors">
+              className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-[var(--primary)] bg-[var(--primary)]/10 border border-[var(--primary)] rounded-lg hover:bg-[var(--primary)]/10 transition-colors">
               <Eye size={13} /> View FAQ
             </Link>
           )}
           <div className="flex items-center gap-2">
             <button onClick={handleDismiss} disabled={dismissing}
-              className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-gray-600 bg-gray-100 border border-gray-200 rounded-lg hover:bg-gray-200 disabled:opacity-50 transition-colors">
+              className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-[var(--text-muted)] bg-[var(--surface)] border border-[var(--border)] rounded-lg hover:bg-[var(--surface)] disabled:opacity-50 transition-colors">
               {dismissing ? <Loader2 size={11} className="animate-spin" /> : null}
               Dismiss
             </button>
             <button onClick={() => onAction(report)}
-              className="flex items-center gap-1 px-3 py-1.5 text-xs font-semibold text-red-600 bg-red-50 border border-red-200 rounded-lg hover:bg-red-100 transition-colors">
+              className="flex items-center gap-1 px-3 py-1.5 text-xs font-semibold text-[var(--error)] bg-[var(--error)]/10 border border-[var(--error)] rounded-lg hover:bg-[var(--error)]/10 transition-colors">
               <Flag size={12} /> Take Action
             </button>
           </div>
@@ -220,11 +220,11 @@ const ReportRow = ({ report, onAction, onDismiss }) => {
 // ── Empty state ────────────────────────────────────────────────────────────────
 const EmptyState = ({ icon: Icon, title, subtitle }) => (
   <div className="flex flex-col items-center justify-center py-20 text-center">
-    <div className="w-14 h-14 bg-gray-100 rounded-full flex items-center justify-center mb-4">
-      <Icon size={24} className="text-gray-300" />
+    <div className="w-14 h-14 bg-[var(--surface)] rounded-full flex items-center justify-center mb-4">
+      <Icon size={24} className="text-[var(--text-muted)]" />
     </div>
-    <h3 className="font-semibold text-gray-700">{title}</h3>
-    <p className="text-sm text-gray-400 mt-1">{subtitle}</p>
+    <h3 className="font-semibold text-[var(--text)]">{title}</h3>
+    <p className="text-sm text-[var(--text-muted)] mt-1">{subtitle}</p>
   </div>
 );
 
@@ -238,17 +238,20 @@ const ModQueuePage = () => {
 
   const loadAll = async () => {
     setLoading(true);
+    let isMounted = true;
     try {
       const [pRes, rRes] = await Promise.all([
         faqs.getAll({ status: 'pending', limit: 50 }),
         getReports('pending'),
       ]);
-      setPending(pRes.data.data || []);
-      setReports(rRes.data.data || []);
+      if (!isMounted) return;
+      setPending(pRes.data.data ?? []);
+      setReports(rRes.data.data ?? []);
     } catch {
+      if (!isMounted) return;
       toast.error('Failed to load queue');
     } finally {
-      setLoading(false);
+      if (isMounted) setLoading(false);
     }
   };
 
@@ -257,9 +260,11 @@ const ModQueuePage = () => {
   // Load flagged separately when switching to that tab
   useEffect(() => {
     if (tab !== 'flagged') return;
+    let isMounted = true;
     faqs.getAll({ status: 'flagged', limit: 50 })
-      .then((res) => setFlagged(res.data.data || []))
-      .catch(() => toast.error('Failed to load flagged'));
+      .then((res) => { if (isMounted) setFlagged(res.data.data ?? []); })
+      .catch(() => { if (isMounted) toast.error('Failed to load flagged'); });
+    return () => { isMounted = false; };
   }, [tab]);
 
   const removeFAQ = (id, list, setList) =>
@@ -275,7 +280,7 @@ const ModQueuePage = () => {
   ];
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-[var(--surface)]">
       <div className="max-w-5xl mx-auto px-4 py-8">
 
         {/* Header */}
@@ -284,29 +289,29 @@ const ModQueuePage = () => {
             <Shield size={20} className="text-orange-600" />
           </div>
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">Moderation Queue</h1>
-            <p className="text-sm text-gray-500">Review community content and reports</p>
+            <h1 className="text-2xl font-bold text-[var(--text-h)]">Moderation Queue</h1>
+            <p className="text-sm text-[var(--text-muted)]">Review community content and reports</p>
           </div>
         </div>
 
         {/* Tabs */}
-        <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-          <div className="flex border-b border-gray-200">
+        <div className="bg-white rounded-xl border border-[var(--border)] overflow-hidden">
+          <div className="flex border-b border-[var(--border)]">
             {TABS.map(({ key, label, icon: Icon, count }) => (
               <button
                 key={key}
                 onClick={() => setTab(key)}
                 className={`flex-1 flex items-center justify-center gap-2 py-3.5 text-sm font-semibold transition-colors ${
                   tab === key
-                    ? 'text-blue-600 bg-blue-50 border-b-2 border-blue-600'
-                    : 'text-gray-400 hover:text-gray-600 border-b-2 border-transparent'
+                    ? 'text-[var(--primary)] bg-[var(--primary)]/10 border-b-2 border-[var(--primary)]'
+                    : 'text-[var(--text-muted)] hover:text-[var(--text-muted)] border-b-2 border-transparent'
                 }`}
               >
                 <Icon size={15} />
                 {label}
                 {count > 0 && (
                   <span className={`min-w-[20px] h-5 px-1.5 text-[11px] font-bold rounded-full flex items-center justify-center ${
-                    tab === key ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-600'
+                    tab === key ? 'bg-[var(--primary)] text-white' : 'bg-[var(--surface)] text-[var(--text-muted)]'
                   }`}>
                     {count > 99 ? '99+' : count}
                   </span>
@@ -318,7 +323,7 @@ const ModQueuePage = () => {
           <div className="p-4 space-y-3">
             {loading ? (
               <div className="flex items-center justify-center py-16">
-                <Loader2 size={22} className="animate-spin text-blue-500" />
+                <Loader2 size={22} className="animate-spin text-[var(--primary)]" />
               </div>
             ) : tab === 'pending' && (
               pending.length === 0 ? (

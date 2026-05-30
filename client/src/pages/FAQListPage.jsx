@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { Link } from 'react-router-dom';
-import { formatDistanceToNow } from 'timeago.js';
+import { format } from 'timeago.js';
 import { Search, ChevronUp, ChevronDown, MessageSquare, Eye, Tag, Filter, X } from 'lucide-react';
 import { faqs } from '../services/api';
 import { useAuth } from '../context/AuthContext';
@@ -19,8 +19,8 @@ const CategoryIcon = ({ category }) => {
 const StatusBadge = ({ status }) => {
   const map = {
     pending:  { label: '⏳ Pending',  cls: 'bg-yellow-50 text-yellow-700 border-yellow-200' },
-    approved: { label: '✅ Approved', cls: 'bg-green-50 text-green-700 border-green-200' },
-    rejected: { label: '❌ Rejected', cls: 'bg-red-50 text-red-700 border-red-200' },
+    approved: { label: '✅ Approved', cls: 'bg-[var(--success)]/10 text-[var(--success)] border-[var(--success)]' },
+    rejected: { label: '❌ Rejected', cls: 'bg-[var(--error)]/10 text-[var(--error)] border-[var(--error)]' },
     flagged:  { label: '🚩 Flagged',  cls: 'bg-orange-50 text-orange-700 border-orange-200' },
   };
   const b = map[status] || map.pending;
@@ -97,7 +97,6 @@ const FilterDrawer = ({ open, onClose, category, setCategory, tag, setTag, sort,
       </div>
     </div>
   ) : null
-// eslint-disable-next-line react-hooks/exhaustive-deps
 );
 
 const FAQListPage = () => {
@@ -313,10 +312,10 @@ const FAQListPage = () => {
                     )}
                     <div className="flex items-center gap-3 sm:gap-4 mt-3 text-xs text-[var(--text-muted)] flex-wrap">
                       <span className="flex items-center gap-1.5">
-                        <img src={getAvatarUrl(faq.author)} className="w-5 h-5 rounded-full" alt="" />
+                        <img src={getAvatarUrl(faq.author)} className="w-5 h-5 rounded-full object-cover" alt="" />
                         {faq.author?.name}
                       </span>
-                      <span>{formatDistanceToNow(new Date(faq.createdAt), { locale: 'en' })}</span>
+                      <span>{format(new Date(faq.createdAt), { locale: 'en' })}</span>
                       <span className="flex items-center gap-0.5"><MessageSquare size={12} /> {faq.answers?.length || 0}</span>
                       <span className="flex items-center gap-0.5"><Eye size={12} /> {faq.views || 0}</span>
                       {(user?.role === 'moderator' || user?.role === 'admin') && <StatusBadge status={faq.status} />}

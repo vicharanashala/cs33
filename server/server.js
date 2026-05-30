@@ -5,17 +5,17 @@ const http = require('http');
 const { Server } = require('socket.io');
 const helmet = require('helmet');
 const cors = require('cors');
-const expressMongoSanitize = require('express-mongo-sanitize');
-const rateLimit = require('express-rate-limit');
+const { rateLimit } = require('express-rate-limit');
 const connectDB = require('./config/db');
 const initSocket = require('./config/socket');
 const { sendWeeklyDigest } = require('./utils/weeklyDigest');
+const AppError = require('./utils/AppError');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
 const CLIENT_URL = process.env.CLIENT_URL || 'http://localhost:5173';
 
-// ── Hardened Helmet ──────────────────────────────────────────────────────────
+// ── 1. Helmet (security headers) ─────────────────────────────────────────────
 app.use(helmet({
   contentSecurityPolicy: {
     directives: {
@@ -28,25 +28,10 @@ app.use(helmet({
       formAction: ["'self'"],
     },
   },
-  // Explicitly disable iframe embedding (X-Frame-Options alternative)
   crossOriginEmbedderPolicy: false,
 }));
 
-// ── Additional security headers (Helmet doesn't set all of these by default) ──
-app.use((req, res, next) => {
-  // X-Content-Type-Options: prevent MIME sniffing
-  res.setHeader('X-Content-Type-Options', 'nosniff');
-  // X-Frame-Options: prevent clickjacking
-  res.setHeader('X-Frame-Options', 'DENY');
-  // Referrer-Policy: control referrer information
-  res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
-  // Strict-Transport-Security (enforced over HTTPS in production)
-  if (process.env.NODE_ENV === 'production') {
-    res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
-  }
-  next();
-});
-
+// ── 2. CORS ───────────────────────────────────────────────────────────────────
 app.use(cors({
   origin: CLIENT_URL,
   credentials: true,
@@ -54,65 +39,53 @@ app.use(cors({
   allowedHeaders: ['Content-Type', 'Authorization'],
 }));
 
+// ── 3. Body parsers ───────────────────────────────────────────────────────────
 app.use(express.json({ limit: '1mb' }));
 app.use(express.urlencoded({ extended: true, limit: '1mb' }));
-app.use(expressMongoSanitize({ replaceWith: '_' }));
 
-// ── Global rate limiter (fallback — per-route ones override per-path) ─────────
-const globalLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 min
+// ── 4. Mongo query sanitisation ───────────────────────────────────────────────
+function sanitizeForMongo(value) {
+  if (Array.isArray(value)) {
+    return value.map((item) => sanitizeForMongo(item));
+  }
+  if (value && typeof value === 'object') {
+    return Object.fromEntries(
+      Object.entries(value).map(([key, entryValue]) => [
+        key.replace(/\$/g, '_').replace(/\./g, '_'),
+        sanitizeForMongo(entryValue),
+      ])
+    );
+  }
+  return value;
+}
+
+app.use((req, _res, next) => {
+  if (req.body)    req.body    = sanitizeForMongo(req.body);
+  if (req.query)   req.query   = sanitizeForMongo(req.query);
+  if (req.params)  req.params  = sanitizeForMongo(req.params);
+  next();
+});
+
+// ── 5. Global rate limiter ────────────────────────────────────────────────────
+app.use('/api/', rateLimit({
+  windowMs: 15 * 60 * 1000,
   max: 500,
   standardHeaders: true,
   legacyHeaders: false,
   message: { success: false, error: 'Too many requests. Please try again later.' },
-});
-app.use('/api/', globalLimiter);
+}));
 
-// ── Auth rate limiter (stricter) ──────────────────────────────────────────────
-const authLimiter = rateLimit({
+// ── 6. Auth rate limiter (stricter) ──────────────────────────────────────────
+app.use('/api/auth', rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 15,
   message: { success: false, error: 'Too many attempts. Please try again later.' },
   standardHeaders: true,
   legacyHeaders: false,
-});
-app.use('/api/auth', authLimiter);
+}));
 
-// ── FAQ creation rate limiter: 5 per hour per IP ──────────────────────────────
-const createFAQLimiter = rateLimit({
-  windowMs: 60 * 60 * 1000, // 1 hour
-  max: 5,
-  keyGenerator: (req) => req.ip,
-  message: { success: false, error: 'FAQ creation limit reached (5/hour). Try again later.' },
-  standardHeaders: true,
-  legacyHeaders: false,
-});
-
-// ── Answer creation rate limiter: 10 per hour per IP ─────────────────────────
-const addAnswerLimiter = rateLimit({
-  windowMs: 60 * 60 * 1000,
-  max: 10,
-  keyGenerator: (req) => req.ip,
-  message: { success: false, error: 'Answer limit reached (10/hour). Try again later.' },
-  standardHeaders: true,
-  legacyHeaders: false,
-});
-
-// ── Report rate limiter: 3 per hour per IP ───────────────────────────────────
-const reportLimiter = rateLimit({
-  windowMs: 60 * 60 * 1000,
-  max: 3,
-  keyGenerator: (req) => req.ip,
-  message: { success: false, error: 'Report limit reached (3/hour). Try again later.' },
-  standardHeaders: true,
-  legacyHeaders: false,
-});
-
-// Make rate limiters available to routes via req.io.to-like pattern
-// Attach to app.locals so routes can reference them
-app.locals.limiters = { createFAQLimiter, addAnswerLimiter, reportLimiter };
-
-// ── Socket.io ─────────────────────────────────────────────────────────────────
+// ── 7. Socket.IO — attached to http server, not express app ───────────────────
+// http.createServer(app) must precede this; req.io is injected before routes
 const server = http.createServer(app);
 const io = new Server(server, {
   cors: { origin: CLIENT_URL, credentials: true },
@@ -124,7 +97,7 @@ app.use((req, _res, next) => {
   next();
 });
 
-// ── Routes ────────────────────────────────────────────────────────────────────
+// ── 8. Routes ────────────────────────────────────────────────────────────────
 app.use('/api/auth',          require('./routes/auth'));
 app.use('/api/faqs',          require('./routes/faqs'));
 app.use('/api/users',         require('./routes/user'));
@@ -133,24 +106,31 @@ app.use('/api/comments',      require('./routes/comment'));
 app.use('/api/upload',        require('./routes/upload'));
 app.use('/api/notifications', require('./routes/notifications'));
 app.use('/api/stats',         require('./routes/stats'));
+app.use('/api/mod',           require('./routes/mod'));
+app.use('/api/reports',       require('./routes/reports'));
 app.use('/api/admin',         require('./routes/admin'));
 app.use('/api/admin/faqs',    require('./routes/admin/faq'));
 app.use('/api/admin/users',   require('./routes/admin/user'));
 app.use('/api/admin/dashboard', require('./routes/admin/dashboard'));
 
-// ── 404 ────────────────────────────────────────────────────────────────────────
+// ── 9. 404 + Global error handler (MUST be last) ─────────────────────────────
 app.use((req, _res, next) => next(new AppError(`Route ${req.originalUrl} not found`, 404)));
 app.use(require('./middleware/errorHandler'));
 
-server.listen(PORT, async () => {
+// ── Start: connectDB() called BEFORE server.listen() ─────────────────────────
+const startServer = async () => {
   await connectDB();
-  console.log(`Server running on port ${PORT}`);
+  server.listen(PORT, () => {
+    console.log(`Server running on port ${PORT}`);
+  });
 
   setInterval(() => {
     sendWeeklyDigest().catch((err) =>
       console.error('Weekly digest error:', err.message)
     );
   }, 7 * 24 * 60 * 60 * 1000);
-});
+};
+
+startServer();
 
 module.exports = { app, io, server };

@@ -1,4 +1,5 @@
 const crypto = require('crypto');
+const fs = require('fs');
 const User = require('../models/User');
 const AppError = require('../utils/AppError');
 const { sendEmail } = require('../utils/sendEmail');
@@ -6,16 +7,18 @@ const { sendEmail } = require('../utils/sendEmail');
 const register = async (req, res, next) => {
   try {
     const { name, email, password } = req.body;
-
+    fs.appendFileSync('C:/Users/cheru/reg-trace.log', `REQ email="${email}" lower="${email?.toLowerCase()}"\n`);
     const existing = await User.findOne({ email: email.toLowerCase() });
+    fs.appendFileSync('C:/Users/cheru/reg-trace.log', `DB existing=${existing ? existing.email + ' id=' + existing._id : 'NONE'}\n`);
     if (existing) return next(new AppError('Email already registered', 400));
 
     const emailVerifyToken = crypto.randomBytes(32).toString('hex');
 
+    // Use `password` field (not passwordHash) so the pre-save hook hashes it
     const user = await User.create({
       name,
       email: email.toLowerCase(),
-      passwordHash: password,
+      password,
       emailVerifyToken,
     });
 
@@ -29,7 +32,7 @@ const register = async (req, res, next) => {
 
     const token = user.generateJWT();
 
-    res.status(201).json({
+    return res.status(201).json({
       success: true,
       token,
       user: {
@@ -43,7 +46,7 @@ const register = async (req, res, next) => {
     });
   } catch (err) {
     if (err.code === 11000) return next(new AppError('Email already registered', 400));
-    next(err);
+    return next(err);
   }
 };
 
@@ -57,12 +60,17 @@ const login = async (req, res, next) => {
     const isMatch = await user.matchPassword(password);
     if (!isMatch) return next(new AppError('Invalid email or password', 401));
 
+    // Reject suspended users — they must not get a JWT
+    if (user.isSuspended) {
+      return next(new AppError('Your account has been suspended.', 403));
+    }
+
     user.lastActive = new Date();
     await user.save({ validateBeforeSave: false });
 
     const token = user.generateJWT();
 
-    res.json({
+    return res.json({
       success: true,
       token,
       user: {
@@ -75,14 +83,14 @@ const login = async (req, res, next) => {
       },
     });
   } catch (err) {
-    next(err);
+    return next(err);
   }
 };
 
 const getMe = async (req, res, next) => {
   try {
     const user = req.user;
-    res.json({
+    return res.json({
       success: true,
       user: {
         id: user._id,
@@ -103,7 +111,7 @@ const getMe = async (req, res, next) => {
       },
     });
   } catch (err) {
-    next(err);
+    return next(err);
   }
 };
 
@@ -131,9 +139,9 @@ const forgotPassword = async (req, res, next) => {
       html: `<a href="${resetUrl}">Click to reset your password</a>`,
     });
 
-    res.json({ success: true, message: 'Password reset email sent' });
+    return res.json({ success: true, message: 'Password reset email sent' });
   } catch (err) {
-    next(err);
+    return next(err);
   }
 };
 
@@ -156,9 +164,9 @@ const resetPassword = async (req, res, next) => {
     await user.save();
 
     const newToken = user.generateJWT();
-    res.json({ success: true, token: newToken, message: 'Password reset successful' });
+    return res.json({ success: true, token: newToken, message: 'Password reset successful' });
   } catch (err) {
-    next(err);
+    return next(err);
   }
 };
 
@@ -172,9 +180,9 @@ const verifyEmail = async (req, res, next) => {
     user.emailVerifyToken = undefined;
     await user.save();
 
-    res.json({ success: true, message: 'Email verified successfully' });
+    return res.json({ success: true, message: 'Email verified successfully' });
   } catch (err) {
-    next(err);
+    return next(err);
   }
 };
 

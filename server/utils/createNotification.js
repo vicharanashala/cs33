@@ -4,7 +4,7 @@ const User = require('../models/User');
 const createNotification = async ({ recipient, sender, type, faqId, message, io }) => {
   if (!recipient) return;
 
-  // Don't notify yourself
+  // FIX: recipient !== sender check — never notify yourself
   if (sender && recipient.equals(sender)) return;
 
   // Check user notification preferences

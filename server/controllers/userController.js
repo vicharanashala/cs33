@@ -17,14 +17,13 @@ const getProfile = async (req, res, next) => {
       FAQ.countDocuments({ 'answers.author': user._id, status: 'approved' }),
     ]);
 
-    // Count accepted answers (answers where isAccepted === true on approved FAQs)
     const acceptedCount = await FAQ.countDocuments({
       'answers.author': user._id,
       'answers.isAccepted': true,
       status: 'approved',
     });
 
-    res.json({
+    return res.json({
       success: true,
       data: {
         ...user.toObject(),
@@ -35,7 +34,7 @@ const getProfile = async (req, res, next) => {
       },
     });
   } catch (err) {
-    next(err);
+    return next(err);
   }
 };
 
@@ -60,9 +59,9 @@ const updateProfile = async (req, res, next) => {
       'name avatar bio reputation badges email role notifyOnAnswer notifyOnComment createdAt lastActive'
     );
 
-    res.json({ success: true, data: user });
+    return res.json({ success: true, data: user });
   } catch (err) {
-    next(err);
+    return next(err);
   }
 };
 
@@ -80,6 +79,7 @@ const changePassword = async (req, res, next) => {
     }
 
     const user = await User.findById(id).select('+passwordHash');
+    if (!user) return next(new AppError('User not found', 404));
 
     const isMatch = await user.matchPassword(currentPassword);
     if (!isMatch) return next(new AppError('Current password is incorrect', 401));
@@ -87,9 +87,9 @@ const changePassword = async (req, res, next) => {
     user.passwordHash = newPassword;
     await user.save();
 
-    res.json({ success: true, message: 'Password changed successfully' });
+    return res.json({ success: true, message: 'Password changed successfully' });
   } catch (err) {
-    next(err);
+    return next(err);
   }
 };
 
@@ -111,9 +111,9 @@ const followUser = async (req, res, next) => {
     req.user.following.push(id);
     await req.user.save();
 
-    res.json({ success: true, message: 'User followed' });
+    return res.json({ success: true, message: 'User followed' });
   } catch (err) {
-    next(err);
+    return next(err);
   }
 };
 
@@ -128,9 +128,9 @@ const unfollowUser = async (req, res, next) => {
     req.user.following = req.user.following.filter((uid) => !uid.equals(id));
     await req.user.save();
 
-    res.json({ success: true, message: 'User unfollowed' });
+    return res.json({ success: true, message: 'User unfollowed' });
   } catch (err) {
-    next(err);
+    return next(err);
   }
 };
 
@@ -147,13 +147,13 @@ const saveFAQ = async (req, res, next) => {
       req.user.savedFAQs = req.user.savedFAQs.filter((id) => !id.equals(faqId));
       await req.user.save();
       return res.json({ success: true, message: 'FAQ removed from saved', saved: false });
-    } else {
-      req.user.savedFAQs.push(faqId);
-      await req.user.save();
-      return res.json({ success: true, message: 'FAQ saved', saved: true });
     }
+
+    req.user.savedFAQs.push(faqId);
+    await req.user.save();
+    return res.json({ success: true, message: 'FAQ saved', saved: true });
   } catch (err) {
-    next(err);
+    return next(err);
   }
 };
 
@@ -163,9 +163,9 @@ const getSavedFAQs = async (req, res, next) => {
       .sort({ createdAt: -1 })
       .select('question tags votes createdAt');
 
-    res.json({ success: true, data: faqs });
+    return res.json({ success: true, data: faqs });
   } catch (err) {
-    next(err);
+    return next(err);
   }
 };
 
@@ -185,15 +185,12 @@ const getActivityFeed = async (req, res, next) => {
       .limit(20)
       .populate('author', 'name avatar');
 
-    
-    res.json({ success: true, data: faqs });
-
+    return res.json({ success: true, data: faqs });
   } catch (err) {
-    next(err);
+    return next(err);
   }
 };
 
-// Get answers by a specific user
 const getUserAnswers = async (req, res, next) => {
   try {
     const { idOrUsername } = req.params;
@@ -209,7 +206,6 @@ const getUserAnswers = async (req, res, next) => {
       .sort({ createdAt: -1 })
       .populate('answers.author', 'name avatar reputation');
 
-    // Flatten + shape answers
     const answers = faqs.flatMap((f) =>
       f.answers
         .filter((a) => a.author && a.author._id.equals(user._id))
@@ -224,13 +220,12 @@ const getUserAnswers = async (req, res, next) => {
         }))
     );
 
-    res.json({ success: true, data: answers });
+    return res.json({ success: true, data: answers });
   } catch (err) {
-    next(err);
+    return next(err);
   }
 };
 
-// Get activity for a specific user (used on profile page Activity tab)
 const getUserActivity = async (req, res, next) => {
   try {
     const { idOrUsername } = req.params;
@@ -269,9 +264,9 @@ const getUserActivity = async (req, res, next) => {
     ];
 
     activity.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
-    res.json({ success: true, data: activity.slice(0, 30) });
+    return res.json({ success: true, data: activity.slice(0, 30) });
   } catch (err) {
-    next(err);
+    return next(err);
   }
 };
 
@@ -296,9 +291,9 @@ const getLeaderboard = async (req, res, next) => {
       })
     );
 
-    res.json({ success: true, data: enriched });
+    return res.json({ success: true, data: enriched });
   } catch (err) {
-    next(err);
+    return next(err);
   }
 };
 
@@ -310,6 +305,8 @@ module.exports = {
   unfollowUser,
   saveFAQ,
   getSavedFAQs,
-  getActivityFeed, getUserActivity, getUserAnswers,
+  getActivityFeed,
+  getUserActivity,
+  getUserAnswers,
   getLeaderboard,
 };

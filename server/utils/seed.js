@@ -216,7 +216,8 @@ async function seed() {
   const admin = await User.create({
     name: 'Admin User',
     email: 'admin@test.com',
-    passwordHash: 'password123',   // pre-save hook hashes this
+    username: 'admin',
+    password: 'password123',
     role: 'admin',
     reputation: 0,
     badges: [],
@@ -226,7 +227,8 @@ async function seed() {
   const mod = await User.create({
     name: 'Moderator User',
     email: 'mod@test.com',
-    passwordHash: 'password123',
+    username: 'mod',
+    password: 'password123',
     role: 'moderator',
     reputation: 0,
     badges: [],
@@ -236,7 +238,8 @@ async function seed() {
   const user1 = await User.create({
     name: 'Alice Johnson',
     email: 'user1@test.com',
-    passwordHash: 'password123',
+    username: 'alice',
+    password: 'password123',
     role: 'user',
     reputation: 150,
     badges: [{ name: 'Contributor', awardedAt: new Date() }],
@@ -246,7 +249,8 @@ async function seed() {
   const user2 = await User.create({
     name: 'Bob Smith',
     email: 'user2@test.com',
-    passwordHash: 'password123',
+    username: 'bob',
+    password: 'password123',
     role: 'user',
     reputation: 45,
     badges: [],

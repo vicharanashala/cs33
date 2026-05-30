@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Link, NavLink, useNavigate } from 'react-router-dom';
+import { Link, NavLink, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import NotificationBell from '../common/NotificationBell';
 import { Menu, X, ChevronDown, LogOut, User, Bookmark, Shield, LayoutDashboard, Sun, Moon } from 'lucide-react';
@@ -9,9 +9,16 @@ const Navbar = () => {
   const { user, logout } = useAuth();
   const { theme, toggleTheme } = useTheme();
   const navigate = useNavigate();
+  const location = useLocation();
   const [menuOpen, setMenuOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const userMenuRef = useRef(null);
+
+  // Close menus on route change (handles programmatic navigation)
+  useEffect(() => {
+    setMenuOpen(false);
+    setUserMenuOpen(false);
+  }, [location.pathname]);
 
   // Close user menu on outside click
   useEffect(() => {
@@ -20,7 +27,7 @@ const Navbar = () => {
     };
     document.addEventListener('mousedown', handler);
     return () => document.removeEventListener('mousedown', handler);
-  }, []);
+  }, [userMenuOpen]);
 
   // Close mobile menu on ESC
   useEffect(() => {
@@ -34,7 +41,7 @@ const Navbar = () => {
 
   const navLinkClass = ({ isActive }) =>
     `px-3 py-2 rounded-md text-sm font-medium transition-colors ${
-      isActive ? 'text-blue-600 bg-blue-50' : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
+      isActive ? 'text-[var(--primary)] bg-[var(--primary)]/10' : 'text-[var(--text-muted)] hover:text-[var(--text-h)] hover:bg-[var(--surface)]'
     }`;
 
   const overlayLinkClass = ({ isActive }) =>
@@ -58,7 +65,7 @@ const Navbar = () => {
               <NavLink to="/leaderboard" className={navLinkClass}>Leaderboard</NavLink>
               {user && (
                 <>
-                  <NavLink to="/submit" className={navLinkClass}>Submit FAQ</NavLink>
+                  <NavLink to="/faqs/submit" className={navLinkClass}>Submit FAQ</NavLink>
                   <NavLink to="/feed" className={navLinkClass}>Feed</NavLink>
                 </>
               )}
@@ -87,7 +94,7 @@ const Navbar = () => {
 
               {/* User menu (desktop) */}
               {user ? (
-                <div className="hidden md:block relative" ref={userMenuRef}>
+                <div className="hidden md:block relative" ref={userMenuRef} style={{ position: 'relative' }}>
                   <button
                     onClick={() => setUserMenuOpen((o) => !o)}
                     className="flex items-center gap-2 px-2 py-1.5 rounded-full hover:bg-[var(--surface)] transition-colors"
@@ -120,7 +127,7 @@ const Navbar = () => {
                       ))}
                       <div className="border-t border-[var(--border)] py-1">
                         <button onClick={handleLogout}
-                          className="flex items-center gap-2 px-4 py-2 text-sm text-red-500 hover:bg-red-50 w-full text-left">
+                          className="flex items-center gap-2 px-4 py-2 text-sm text-[var(--error)] hover:bg-[var(--error)]/10 w-full text-left">
                           <LogOut size={16} /> Logout
                         </button>
                       </div>
@@ -182,7 +189,7 @@ const Navbar = () => {
 
             {user ? (
               <>
-                <NavLink to="/submit" onClick={() => setMenuOpen(false)} className={overlayLinkClass}>Submit FAQ</NavLink>
+                <NavLink to="/faqs/submit" onClick={() => setMenuOpen(false)} className={overlayLinkClass}>Submit FAQ</NavLink>
                 <NavLink to="/feed" onClick={() => setMenuOpen(false)} className={overlayLinkClass}>Activity Feed</NavLink>
                 <NavLink to="/saved" onClick={() => setMenuOpen(false)} className={overlayLinkClass}>Saved FAQs</NavLink>
                 <NavLink to={`/profile/${user.id}`} onClick={() => setMenuOpen(false)} className={overlayLinkClass}>Profile</NavLink>
@@ -195,7 +202,7 @@ const Navbar = () => {
                 )}
                 <div className="mt-2 pt-2 border-t border-[var(--border)]">
                   <button onClick={handleLogout}
-                    className="nav-overlay-link text-red-500 w-full text-left">
+                    className="nav-overlay-link text-[var(--error)] w-full text-left">
                     <span className="inline-flex items-center gap-2"><LogOut size={16} /> Logout</span>
                   </button>
                 </div>

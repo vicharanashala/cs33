@@ -19,6 +19,8 @@ const awardBadges = async (userId) => {
     .map((b) => ({ name: b.name, awardedAt: new Date() }));
 
   if (newBadges.length > 0) {
+    // FIX: $addToSet with $each on array of { name, awardedAt } objects
+    // Each object must match exactly — this is safe from duplicates
     await User.findByIdAndUpdate(userId, {
       $addToSet: { badges: { $each: newBadges } },
     });

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { formatDistanceToNow } from 'timeago.js';
+import { format } from 'timeago.js';
 import { Bookmark, ThumbsUp, MessageSquare, Eye, Loader2, BookmarkCheck } from 'lucide-react';
 import { users } from '../services/api';
 import toast from 'react-hot-toast';
@@ -12,7 +12,7 @@ const SavedFAQsPage = () => {
   const load = async () => {
     try {
       const res = await users.getSaved();
-      setFaqs(res.data.data || []);
+      setFaqs((res.data.data ?? []));
     } catch {
       toast.error('Failed to load saved FAQs');
     } finally {
@@ -20,7 +20,11 @@ const SavedFAQsPage = () => {
     }
   };
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => {
+    let isMounted = true;
+    load().finally(() => { if (!isMounted) return; });
+    return () => { isMounted = false; };
+  }, []);
 
   const handleUnsave = async (faqId) => {
     try {
@@ -36,7 +40,7 @@ const SavedFAQsPage = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-[var(--surface)]">
       <div className="max-w-4xl mx-auto px-4 py-8">
 
         {/* Header */}
@@ -45,26 +49,26 @@ const SavedFAQsPage = () => {
             <BookmarkCheck size={20} className="text-indigo-600" />
           </div>
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">Saved FAQs</h1>
-            <p className="text-sm text-gray-500">{faqs.length} bookmarked question{faqs.length !== 1 ? 's' : ''}</p>
+            <h1 className="text-2xl font-bold text-[var(--text-h)]">Saved FAQs</h1>
+            <p className="text-sm text-[var(--text-muted)]">{faqs.length} bookmarked question{faqs.length !== 1 ? 's' : ''}</p>
           </div>
         </div>
 
         {loading ? (
           <div className="grid gap-4">
             {[...Array(4)].map((_, i) => (
-              <div key={i} className="h-28 bg-white rounded-xl animate-pulse border border-gray-100" />
+              <div key={i} className="h-28 bg-white rounded-xl animate-pulse border border-[var(--border)]" />
             ))}
           </div>
         ) : faqs.length === 0 ? (
           <div className="text-center py-16">
-            <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
-              <Bookmark size={28} className="text-gray-300" />
+            <div className="w-16 h-16 bg-[var(--surface)] rounded-full flex items-center justify-center mx-auto mb-4">
+              <Bookmark size={28} className="text-[var(--text-muted)]" />
             </div>
-            <h3 className="font-semibold text-gray-700 mb-1">No saved FAQs yet</h3>
-            <p className="text-sm text-gray-400 mb-6">Bookmark questions to find them quickly later</p>
+            <h3 className="font-semibold text-[var(--text)] mb-1">No saved FAQs yet</h3>
+            <p className="text-sm text-[var(--text-muted)] mb-6">Bookmark questions to find them quickly later</p>
             <Link to="/faqs"
-              className="inline-flex items-center gap-2 px-5 py-2.5 bg-blue-600 text-white text-sm font-semibold rounded-lg hover:bg-blue-700 transition-colors">
+              className="inline-flex items-center gap-2 px-5 py-2.5 bg-[var(--primary)] text-white text-sm font-semibold rounded-lg hover:opacity-90 transition-colors">
               Browse FAQs
             </Link>
           </div>
@@ -83,13 +87,13 @@ const SavedFAQsPage = () => {
 
               return (
                 <div key={id}
-                  className="bg-white rounded-xl border border-gray-200 p-5 hover:shadow-sm transition-all group">
+                  className="bg-white rounded-xl border border-[var(--border)] p-5 hover:shadow-sm transition-all group">
                   <div className="flex items-start justify-between gap-4">
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 mb-1.5 flex-wrap">
                         {author && (
                           <Link to={`/profile/${author._id}`}
-                            className="flex items-center gap-1.5 text-xs text-gray-500 hover:text-blue-600 transition-colors">
+                            className="flex items-center gap-1.5 text-xs text-[var(--text-muted)] hover:text-[var(--primary)] transition-colors">
                             <img
                               src={author.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(author.name)}&background=3b82f6&color=fff&size=20`}
                               alt="" className="w-5 h-5 rounded-full"
@@ -98,35 +102,35 @@ const SavedFAQsPage = () => {
                           </Link>
                         )}
                         {createdAt && (
-                          <span className="text-xs text-gray-400">
-                            asked {formatDistanceToNow(new Date(createdAt), { locale: 'en' })}
+                          <span className="text-xs text-[var(--text-muted)]">
+                            asked {format(new Date(createdAt), { locale: 'en' })}
                           </span>
                         )}
                         {category && (
-                          <span className="text-xs px-2 py-0.5 bg-gray-100 text-gray-500 rounded-full capitalize">
+                          <span className="text-xs px-2 py-0.5 bg-[var(--surface)] text-[var(--text-muted)] rounded-full capitalize">
                             {category}
                           </span>
                         )}
                       </div>
 
                       <Link to={`/faqs/${id}`}
-                        className="block font-semibold text-gray-900 hover:text-blue-600 transition-colors text-base leading-snug mb-2">
+                        className="block font-semibold text-[var(--text-h)] hover:text-[var(--primary)] transition-colors text-base leading-snug mb-2">
                         {question}
                       </Link>
 
                       {tags.length > 0 && (
                         <div className="flex flex-wrap gap-1.5 mb-2">
                           {tags.map((t) => (
-                            <span key={t} className="text-xs px-2 py-0.5 bg-blue-50 text-blue-600 rounded-full">
+                            <span key={t} className="text-xs px-2 py-0.5 bg-[var(--primary)]/10 text-[var(--primary)] rounded-full">
                               {t}
                             </span>
                           ))}
                         </div>
                       )}
 
-                      <div className="flex items-center gap-4 text-xs text-gray-400">
+                      <div className="flex items-center gap-4 text-xs text-[var(--text-muted)]">
                         <span className="flex items-center gap-1">
-                          <ThumbsUp size={12} className={votes > 0 ? 'text-green-500' : ''} /> {votes}
+                          <ThumbsUp size={12} className={votes > 0 ? 'text-[var(--success)]' : ''} /> {votes}
                         </span>
                         <span className="flex items-center gap-1">
                           <MessageSquare size={12} /> {answerCount} answer{answerCount !== 1 ? 's' : ''}
@@ -135,7 +139,7 @@ const SavedFAQsPage = () => {
                           <Eye size={12} /> {views} view{views !== 1 ? 's' : ''}
                         </span>
                         {faq.isAccepted && (
-                          <span className="flex items-center gap-1 text-green-600 font-medium">
+                          <span className="flex items-center gap-1 text-[var(--success)] font-medium">
                             ✓ Accepted
                           </span>
                         )}
@@ -146,7 +150,7 @@ const SavedFAQsPage = () => {
                       <button
                         onClick={() => handleUnsave(id)}
                         title="Remove bookmark"
-                        className="p-2 text-blue-500 bg-blue-50 hover:bg-red-50 hover:text-red-500 rounded-lg transition-colors group-hover:opacity-100 opacity-60"
+                        className="p-2 text-[var(--primary)] bg-[var(--primary)]/10 hover:bg-[var(--error)]/10 hover:text-[var(--error)] rounded-lg transition-colors group-hover:opacity-100 opacity-60"
                       >
                         <Bookmark size={16} className="fill-current" />
                       </button>

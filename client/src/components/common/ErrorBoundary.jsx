@@ -28,8 +28,8 @@ class ErrorBoundary extends Component {
     if (this.state.hasError) {
       return (
         <div className="flex flex-col items-center justify-center min-h-[40vh] px-4 py-16 text-center">
-          <div className="w-16 h-16 rounded-full bg-red-50 border border-red-200 flex items-center justify-center mb-4">
-            <AlertTriangle size={28} className="text-red-500" />
+          <div className="w-16 h-16 rounded-full bg-[var(--error)]/10 border border-[var(--error)] flex items-center justify-center mb-4">
+            <AlertTriangle size={28} className="text-[var(--error)]" />
           </div>
           <h2 className="text-xl font-bold text-[var(--text-h)] mb-2">
             Something went wrong

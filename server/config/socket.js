@@ -2,7 +2,7 @@ const jwt = require('jsonwebtoken');
 const User = require('../models/User');
 
 const initSocket = (io) => {
-  io.on('connection', (socket) => {
+  io.on('connection', async (socket) => {
     const token = socket.handshake.auth?.token;
 
     if (!token) {
@@ -10,17 +10,32 @@ const initSocket = (io) => {
       return;
     }
 
-    let user;
+    let decoded;
     try {
-      const decoded = jwt.verify(token, process.env.JWT_SECRET);
-      user = decoded;
+      decoded = jwt.verify(token, process.env.JWT_SECRET);
     } catch {
       socket.disconnect();
       return;
     }
 
-    socket.join(user.id);
-    console.log(`Socket connected: user ${user.id} (${user.name})`);
+    // FIX: Check if user is suspended — disconnect if so
+    let dbUser;
+    try {
+      dbUser = await User.findById(decoded.id).select('isSuspended');
+    } catch {
+      socket.disconnect();
+      return;
+    }
+
+    if (dbUser?.isSuspended) {
+      socket.emit('error', { message: 'Account suspended' });
+      socket.disconnect();
+      return;
+    }
+
+    // FIX: Join the "user:<id>" room so faqController notifications reach the right socket
+    socket.join(`user:${decoded.id}`);
+    console.log(`Socket connected: user ${decoded.id} (${decoded.name})`);
 
     socket.on('faq:join', (faqId) => {
       socket.join(`faq:${faqId}`);
@@ -31,7 +46,7 @@ const initSocket = (io) => {
     });
 
     socket.on('disconnect', () => {
-      console.log(`Socket disconnected: user ${user?.id}`);
+      console.log(`Socket disconnected: user ${decoded?.id}`);
     });
   });
 };

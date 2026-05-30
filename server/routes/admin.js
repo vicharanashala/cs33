@@ -7,14 +7,16 @@ const Report = require('../models/Report');
 const AppError = require('../utils/AppError');
 
 // All admin routes require authentication + admin role
-router.use(isAuthenticated, isAdmin);
+// FIX: router.use() applies to ALL routes below it — correct approach
+router.use(isAuthenticated);
+router.use(isAdmin);
 
 // ── GET /api/admin/stats ───────────────────────────────────────────────────────
 router.get('/stats', async (req, res, next) => {
   try {
     const now = new Date();
     const weekAgo = new Date(now - 7 * 24 * 60 * 60 * 1000);
-    const todayStart = new Date(now.setHours(0, 0, 0, 0));
+    const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
 
     const [
       userCount,
@@ -34,20 +36,20 @@ router.get('/stats', async (req, res, next) => {
       FAQ.aggregate([{ $group: { _id: '$status', count: { $sum: 1 } } }]),
     ]);
 
-    res.json({
+    return res.json({
       success: true,
       data: {
-        totalUsers: userCount,
+        totalUsers:         userCount,
         newUsersThisWeek,
-        totalFAQs: faqCount,
-        pendingFAQs: pendingCount,
+        totalFAQs:          faqCount,
+        pendingFAQs:        pendingCount,
         reportsToday,
-        userRoleBreakdown: userRoleBreakdown.filter((r) => r._id),
+        userRoleBreakdown:  userRoleBreakdown.filter((r) => r._id),
         faqStatusBreakdown: faqStatusBreakdown.filter((s) => s._id),
       },
     });
   } catch (err) {
-    next(err);
+    return next(err);
   }
 });
 
@@ -65,13 +67,13 @@ router.get('/users', async (req, res, next) => {
       : {};
 
     const result = await User.paginate(query, {
-      page: parseInt(page),
-      limit: parseInt(limit),
+      page: parseInt(page, 10),
+      limit: parseInt(limit, 10),
       sort: { createdAt: -1 },
       select: '-passwordHash',
     });
 
-    res.json({
+    return res.json({
       success: true,
       data: result.docs,
       pagination: {
@@ -81,7 +83,7 @@ router.get('/users', async (req, res, next) => {
       },
     });
   } catch (err) {
-    next(err);
+    return next(err);
   }
 });
 
@@ -91,8 +93,9 @@ router.put('/users/:id/role', async (req, res, next) => {
     const { id } = req.params;
     const { role } = req.body;
 
-    if (!['user', 'moderator', 'admin'].includes(role)) {
-      return next(new AppError('Invalid role', 400));
+    const validRoles = ['user', 'moderator', 'admin'];
+    if (!role || !validRoles.includes(role)) {
+      return next(new AppError(`Role must be one of: ${validRoles.join(', ')}`, 400));
     }
 
     // Prevent self-demotion
@@ -108,9 +111,9 @@ router.put('/users/:id/role', async (req, res, next) => {
 
     if (!updatedUser) return next(new AppError('User not found', 404));
 
-    res.json({ success: true, data: updatedUser });
+    return res.json({ success: true, data: updatedUser });
   } catch (err) {
-    next(err);
+    return next(err);
   }
 });
 
@@ -129,13 +132,13 @@ router.put('/users/:id/suspend', async (req, res, next) => {
     user.isSuspended = !user.isSuspended;
     await user.save();
 
-    res.json({
+    return res.json({
       success: true,
       data: { _id: user._id, isSuspended: user.isSuspended },
       message: user.isSuspended ? 'User suspended' : 'User unsuspended',
     });
   } catch (err) {
-    next(err);
+    return next(err);
   }
 });
 
@@ -151,7 +154,6 @@ router.delete('/users/:id', async (req, res, next) => {
     const user = await User.findByIdAndDelete(id);
     if (!user) return next(new AppError('User not found', 404));
 
-    // Clean up: remove this user from saved lists and following
     await Promise.all([
       User.updateMany({ savedFAQs: id }, { $pull: { savedFAQs: id } }),
       User.updateMany({ following: id }, { $pull: { following: id } }),
@@ -159,9 +161,9 @@ router.delete('/users/:id', async (req, res, next) => {
       Report.deleteMany({ reporter: id }),
     ]);
 
-    res.json({ success: true, message: 'User deleted' });
+    return res.json({ success: true, message: 'User deleted' });
   } catch (err) {
-    next(err);
+    return next(err);
   }
 });
 

@@ -27,28 +27,25 @@ const getDashboard = async (req, res, next) => {
       User.find().sort({ createdAt: -1 }).limit(5).select('-passwordHash'),
     ]);
 
-    const totalFAQs = faqStats.reduce((sum, s) => sum + s.count, 0);
-    const pendingFAQs = faqStats.find((s) => s._id === 'pending')?.count || 0;
-    const totalUsers = recentUsers.length; // approximate
     const pendingReports = reportStats[0]?.pendingCount || 0;
 
-    res.json({
+    return res.json({
       success: true,
       data: {
         stats: {
-          totalFAQs,
-          pendingFAQs,
-          totalUsers: recentUsers.length,
+          totalFAQs:        faqStats.reduce((sum, s) => sum + s.count, 0),
+          pendingFAQs:      faqStats.find((s) => s._id === 'pending')?.count || 0,
+          totalUsers:       userStats[0]?.total || 0,
           pendingReports,
           faqStatusBreakdown: faqStats,
-          userRoleBreakdown: recentUsers.length,
+          userRoleBreakdown:  userStats[0]?.roles || [],
         },
         recentFAQs,
         recentUsers,
       },
     });
   } catch (err) {
-    next(err);
+    return next(err);
   }
 };
 

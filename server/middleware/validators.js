@@ -2,8 +2,6 @@ const { body, param, query, validationResult } = require('express-validator');
 const AppError = require('../utils/AppError');
 
 // ── Validation result handler ─────────────────────────────────────────────────
-// Runs after the validators chain. If errors exist, returns 422 with the
-// full array of field-level error objects.
 const validate = (req, _res, next) => {
   const errors = validationResult(req);
   if (errors.isEmpty()) return next();
@@ -12,6 +10,11 @@ const validate = (req, _res, next) => {
     field: e.path,
     message: e.msg,
   }));
+
+  const fs = require('fs');
+  fs.appendFileSync('C:/Users/cheru/validate-trace.log',
+    new Date().toISOString() + ' ' + req.path + ' body=' + JSON.stringify(req.body) +
+    ' errors=' + JSON.stringify(formatted) + '\n');
 
   return next(new AppError('Validation failed', 422, formatted));
 };
@@ -33,7 +36,6 @@ const isBoolean = (field) =>
   body(field)
     .optional()
     .isBoolean()
-    // .strict() got error
     .withMessage(`${field} must be true or false`);
 
 // ── Auth validators ───────────────────────────────────────────────────────────
@@ -47,7 +49,10 @@ const registerRules = [
     .isEmail()
     .normalizeEmail()
     .withMessage('Valid email is required'),
+  // FIX: notEmpty() + trim() prevents whitespace-only passwords from passing
   body('password')
+    .notEmpty()
+    .trim()
     .isLength({ min: 8, max: 128 })
     .withMessage('Password must be 8–128 characters'),
   validate,
@@ -80,6 +85,8 @@ const resetPasswordRules = [
     .isLength({ min: 32, max: 64 })
     .withMessage('Invalid reset token'),
   body('password')
+    .notEmpty()
+    .trim()
     .isLength({ min: 8, max: 128 })
     .withMessage('Password must be 8–128 characters'),
   validate,
@@ -152,8 +159,8 @@ const addAnswerRules = [
   ObjectIdParam('id'),
   body('body')
     .trim()
-    .isLength({ min: 10, max: 50000 })
-    .withMessage('Answer must be 10–50000 characters'),
+    .isLength({ min: 30, max: 5000 })
+    .withMessage('Answer must be 30–5000 characters'),
   validate,
 ];
 
@@ -162,8 +169,8 @@ const updateAnswerRules = [
   ObjectIdParam('aid'),
   body('body')
     .trim()
-    .isLength({ min: 10, max: 50000 })
-    .withMessage('Answer must be 10–50000 characters'),
+    .isLength({ min: 30, max: 5000 })
+    .withMessage('Answer must be 30–5000 characters'),
   validate,
 ];
 
@@ -205,6 +212,8 @@ const changePasswordRules = [
   ObjectIdParam('id'),
   body('currentPassword').notEmpty().withMessage('Current password is required'),
   body('newPassword')
+    .notEmpty()
+    .trim()
     .isLength({ min: 8, max: 128 })
     .withMessage('New password must be 8–128 characters'),
   validate,
@@ -241,4 +250,5 @@ module.exports = {
   changePasswordRules,
   paginationRules,
   FAQ_CATEGORIES,
+  ObjectIdParam,
 };

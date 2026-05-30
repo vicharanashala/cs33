@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
-import { formatDistanceToNow } from 'timeago.js';
+import { format } from 'timeago.js';
 import {
   User, Star, Calendar, MessageSquare, ThumbsUp, CheckCircle,
   Award, Trophy, ChevronDown, Loader2,
@@ -15,13 +15,13 @@ import EmptyState from '../components/common/EmptyState';
 
 const BADGE_COLORS = {
   first_step:  { bg: 'bg-orange-50',   border: 'border-orange-200',  text: 'text-orange-700' },
-  contributor: { bg: 'bg-blue-50',     border: 'border-blue-200',    text: 'text-blue-700' },
+  contributor: { bg: 'bg-[var(--primary)]/10',     border: 'border-[var(--primary)]',    text: 'text-[var(--primary)]' },
   veteran:     { bg: 'bg-purple-50',   border: 'border-purple-200',  text: 'text-purple-700' },
   expert:      { bg: 'bg-indigo-50',   border: 'border-indigo-200',  text: 'text-indigo-700' },
   legend:      { bg: 'bg-yellow-50',   border: 'border-yellow-200',  text: 'text-yellow-700' },
 };
 
-const MEDAL_COLORS = { 0: 'text-yellow-500', 1: 'text-gray-400', 2: 'text-amber-600' };
+const MEDAL_COLORS = { 0: 'text-yellow-500', 1: 'text-[var(--text-muted)]', 2: 'text-amber-600' };
 
 const ProfilePage = () => {
   const { id } = useParams();
@@ -65,12 +65,13 @@ const ProfilePage = () => {
 
   const handleFollow = async () => {
     if (!currentUser) { toast.error('Please log in to follow'); return; }
+    let isMounted = true;
     try {
       const isFollowing = profile.following?.includes(currentUser.id);
       if (isFollowing) {
         await users.unfollow(id);
         // Optimistically update the cached profile data
-        if (profileData) {
+        if (isMounted && profileData) {
           profileData.profile = {
             ...profile,
             following: profile.following.filter((f) => f !== currentUser.id),
@@ -79,7 +80,7 @@ const ProfilePage = () => {
         }
       } else {
         await users.follow(id);
-        if (profileData) {
+        if (isMounted && profileData) {
           profileData.profile = {
             ...profile,
             following: [...(profile.following || []), currentUser.id],
@@ -88,6 +89,7 @@ const ProfilePage = () => {
         }
       }
     } catch (err) {
+      if (!isMounted) return;
       toast.error(err.response?.data?.error || err.message || 'Action failed');
     }
   };
@@ -124,7 +126,7 @@ const ProfilePage = () => {
   ];
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-[var(--surface)]">
       <div className="max-w-4xl mx-auto px-4 py-8">
 
         {/* ── Profile header card ─────────────────────────────────────── */}
@@ -144,7 +146,7 @@ const ProfilePage = () => {
                 <h1 className="text-xl sm:text-2xl font-bold text-[var(--text-h)]">{profile.name}</h1>
                 {profile.role && profile.role !== 'user' && (
                   <span className={`px-2.5 py-0.5 text-xs rounded-full font-bold uppercase tracking-wide ${
-                    profile.role === 'admin' ? 'bg-red-100 text-red-600' : 'bg-purple-100 text-purple-600'
+                    profile.role === 'admin' ? 'bg-[var(--error)]/10 text-[var(--error)]' : 'bg-[var(--accent)]/10 text-[var(--accent)]'
                   }`}>{profile.role}</span>
                 )}
                 {/* Leaderboard rank badge */}
@@ -164,11 +166,11 @@ const ProfilePage = () => {
                 </span>
                 <span className="flex items-center gap-1.5">
                   <User size={14} />
-                  <strong className="text-gray-700">{profile.followerCount || 0}</strong> followers
+                  <strong className="text-[var(--text)]">{profile.followerCount || 0}</strong> followers
                 </span>
                 <span className="flex items-center gap-1.5">
                   <Calendar size={14} />
-                  Joined {formatDistanceToNow(new Date(profile.createdAt), { locale: 'en' })}
+                  Joined {format(new Date(profile.createdAt), { locale: 'en' })}
                 </span>
               </div>
             </div>
@@ -179,8 +181,8 @@ const ProfilePage = () => {
                 onClick={handleFollow}
                 className={`flex-shrink-0 px-5 py-2 rounded-full text-sm font-semibold transition-all ${
                   isFollowing
-                    ? 'border-2 border-gray-300 text-gray-600 hover:border-red-300 hover:text-red-500'
-                    : 'bg-blue-600 text-white hover:bg-blue-700 shadow-sm'
+                    ? 'border-2 border-[var(--border)] text-[var(--text-muted)] hover:border-[var(--error)] hover:text-[var(--error)]'
+                    : 'bg-[var(--primary)] text-white hover:opacity-90 shadow-sm'
                 }`}
               >
                 {isFollowing ? 'Following' : '+ Follow'}
@@ -190,7 +192,7 @@ const ProfilePage = () => {
 
           {/* Badges */}
           {profile.badges?.length > 0 && (
-            <div className="flex flex-wrap gap-2 mt-5 pt-5 border-t border-gray-100">
+            <div className="flex flex-wrap gap-2 mt-5 pt-5 border-t border-[var(--border)]">
               {profile.badges.map((b, i) => {
                 const key = Object.keys(BADGE_COLORS).find((k) => BADGE_COLORS[k]) || 'first_step';
                 const colors = BADGE_COLORS[b.name] || BADGE_COLORS.contributor;
@@ -240,25 +242,25 @@ const ProfilePage = () => {
               <div className="flex justify-center py-12"><Spinner size="md" /></div>
             ) : tab === 'questions' && (
               <div className="space-y-3">
-                {tabData.length === 0 && <p className="text-gray-400 text-center py-10 text-sm">No questions yet</p>}
+                {tabData.length === 0 && <p className="text-[var(--text-muted)] text-center py-10 text-sm">No questions yet</p>}
                 {tabData.map((faq) => (
                   <Link key={faq._id} to={`/faqs/${faq._id}`}
-                    className="flex items-center justify-between gap-4 p-4 border border-gray-100 rounded-xl hover:border-blue-200 hover:bg-blue-50/30 transition-all group">
+                    className="flex items-center justify-between gap-4 p-4 border border-[var(--border)] rounded-xl hover:border-[var(--primary)] hover:bg-[var(--primary)]/10/30 transition-all group">
                     <div className="min-w-0">
-                      <p className="font-medium text-gray-800 group-hover:text-blue-600 transition-colors line-clamp-1">{faq.question}</p>
-                      <div className="flex items-center gap-3 mt-1.5 text-xs text-gray-400">
+                      <p className="font-medium text-[var(--text-h)] group-hover:text-[var(--primary)] transition-colors line-clamp-1">{faq.question}</p>
+                      <div className="flex items-center gap-3 mt-1.5 text-xs text-[var(--text-muted)]">
                         <span className="flex items-center gap-1"><ThumbsUp size={11} /> {faq.votes || 0}</span>
                         <span className="flex items-center gap-1"><MessageSquare size={11} /> {faq.answerCount || faq.answers?.length || 0}</span>
                         {faq.category && <span className="capitalize">in {faq.category}</span>}
                         {faq.status && faq.status !== 'approved' && (
                           <span className={`px-1.5 py-0.5 text-xs rounded-full capitalize ${
                             faq.status === 'pending' ? 'bg-yellow-100 text-yellow-700' :
-                            faq.status === 'closed'   ? 'bg-red-50 text-red-600' : 'bg-gray-100 text-gray-500'
+                            faq.status === 'closed'   ? 'bg-[var(--error)]/10 text-[var(--error)]' : 'bg-[var(--surface)] text-[var(--text-muted)]'
                           }`}>{faq.status}</span>
                         )}
                       </div>
                     </div>
-                    {faq.isPinned && <span className="text-xs text-blue-500 font-medium flex-shrink-0">📌 Pinned</span>}
+                    {faq.isPinned && <span className="text-xs text-[var(--primary)] font-medium flex-shrink-0">📌 Pinned</span>}
                   </Link>
                 ))}
               </div>
@@ -266,21 +268,21 @@ const ProfilePage = () => {
 
             {tab === 'answers' && (
               <div className="space-y-3">
-                {tabData.length === 0 && <p className="text-gray-400 text-center py-10 text-sm">No answers yet</p>}
+                {tabData.length === 0 && <p className="text-[var(--text-muted)] text-center py-10 text-sm">No answers yet</p>}
                 {tabData.map((ans) => (
                   <Link key={ans._id} to={`/faqs/${ans.faq?._id || ans.faq}`}
-                    className="block p-4 border border-gray-100 rounded-xl hover:border-blue-200 hover:bg-blue-50/30 transition-all group">
-                    <p className="font-medium text-gray-800 group-hover:text-blue-600 transition-colors line-clamp-2">
+                    className="block p-4 border border-[var(--border)] rounded-xl hover:border-[var(--primary)] hover:bg-[var(--primary)]/10/30 transition-all group">
+                    <p className="font-medium text-[var(--text-h)] group-hover:text-[var(--primary)] transition-colors line-clamp-2">
                       {ans.faq?.question || 'FAQ #' + (ans.faq?._id || ans.faq)}
                     </p>
-                    <div className="flex items-center gap-3 mt-2 text-xs text-gray-400">
+                    <div className="flex items-center gap-3 mt-2 text-xs text-[var(--text-muted)]">
                       <span className="flex items-center gap-1"><ThumbsUp size={11} /> {ans.votes || 0}</span>
                       {ans.isAccepted && (
-                        <span className="flex items-center gap-1 text-green-600">
+                        <span className="flex items-center gap-1 text-[var(--success)]">
                           <CheckCircle size={11} /> Accepted
                         </span>
                       )}
-                      <span>{formatDistanceToNow(new Date(ans.createdAt), { locale: 'en' })}</span>
+                      <span>{format(new Date(ans.createdAt), { locale: 'en' })}</span>
                     </div>
                   </Link>
                 ))}
@@ -289,19 +291,19 @@ const ProfilePage = () => {
 
             {tab === 'activity' && (
               <div className="space-y-0">
-                {tabData.length === 0 && <p className="text-gray-400 text-center py-10 text-sm">No activity yet</p>}
+                {tabData.length === 0 && <p className="text-[var(--text-muted)] text-center py-10 text-sm">No activity yet</p>}
                 {tabData.map((event, i) => (
-                  <div key={i} className="flex items-start gap-3 py-3 border-b border-gray-50 last:border-0">
+                  <div key={i} className="flex items-start gap-3 py-3 border-b border-[var(--border)] last:border-0">
                     <span className="text-xl flex-shrink-0 mt-0.5">{event.icon || '📌'}</span>
                     <div className="min-w-0 flex-1">
-                      <p className="text-sm text-gray-700">
-                        <span className="font-medium text-gray-900">{profile.name}</span>
+                      <p className="text-sm text-[var(--text)]">
+                        <span className="font-medium text-[var(--text-h)]">{profile.name}</span>
                         {' '}{event.text}
                         {event.faq && (
-                          <> — <Link to={`/faqs/${event.faq._id}`} className="text-blue-500 hover:underline">{event.faq.question}</Link></>
+                          <> — <Link to={`/faqs/${event.faq._id}`} className="text-[var(--primary)] hover:underline">{event.faq.question}</Link></>
                         )}
                       </p>
-                      <p className="text-xs text-gray-400 mt-0.5">{formatDistanceToNow(new Date(event.createdAt), { locale: 'en' })}</p>
+                      <p className="text-xs text-[var(--text-muted)] mt-0.5">{format(new Date(event.createdAt), { locale: 'en' })}</p>
                     </div>
                   </div>
                 ))}

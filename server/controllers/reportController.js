@@ -20,7 +20,6 @@ const getReports = async (req, res, next) => {
 
     const result = await Report.paginate(query, options);
 
-    // Also populate targetId with actual content
     const reports = await Promise.all(
       result.docs.map(async (report) => {
         const obj = report.toObject();
@@ -41,7 +40,7 @@ const getReports = async (req, res, next) => {
       })
     );
 
-    res.json({
+    return res.json({
       success: true,
       data: reports,
       pagination: {
@@ -53,7 +52,7 @@ const getReports = async (req, res, next) => {
       },
     });
   } catch (err) {
-    next(err);
+    return next(err);
   }
 };
 
@@ -63,7 +62,7 @@ const reviewReport = async (req, res, next) => {
     const { status } = req.body;
 
     if (!status || !['reviewed', 'dismissed'].includes(status)) {
-      return next(new AppError('Status must be \"reviewed\" or \"dismissed\"', 400));
+      return next(new AppError('Status must be "reviewed" or "dismissed"', 400));
     }
 
     const report = await Report.findById(id);
@@ -73,9 +72,9 @@ const reviewReport = async (req, res, next) => {
     report.reviewedBy = req.user._id;
     await report.save();
 
-    res.json({ success: true, data: report });
+    return res.json({ success: true, data: report });
   } catch (err) {
-    next(err);
+    return next(err);
   }
 };
 

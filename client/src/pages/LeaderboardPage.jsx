@@ -9,7 +9,7 @@ import EmptyState from '../components/common/EmptyState';
 
 const MEDAL = {
   0: { icon: '🥇', bg: 'bg-yellow-50',  border: 'border-yellow-300', text: 'text-yellow-700' },
-  1: { icon: '🥈', bg: 'bg-gray-50',    border: 'border-gray-300',   text: 'text-gray-600' },
+  1: { icon: '🥈', bg: 'bg-[var(--surface)]',    border: 'border-[var(--border)]',   text: 'text-[var(--text-muted)]' },
   2: { icon: '🥉', bg: 'bg-amber-50',   border: 'border-amber-200',  text: 'text-amber-700' },
 };
 
@@ -61,10 +61,10 @@ const LeaderboardPage = () => {
                       alt={u.name} className="w-12 h-12 rounded-full object-cover ring-2 ring-white"
                     />
                     <div>
-                      <p className="font-bold text-gray-900">{u.name}</p>
+                      <p className="font-bold text-[var(--text-h)]">{u.name}</p>
                       <div className="flex items-center gap-2 mt-0.5">
                         {u.badges?.slice(0, 2).map((b, bi) => (
-                          <span key={bi} className="text-xs px-2 py-0.5 bg-white/70 rounded-full text-gray-600">
+                          <span key={bi} className="text-xs px-2 py-0.5 bg-[var(--card-bg)]/70 rounded-full text-[var(--text-muted)]">
                             {b.name?.replace('_', ' ')}
                           </span>
                         ))}
@@ -73,21 +73,21 @@ const LeaderboardPage = () => {
                   </Link>
                   <div className="text-right flex-shrink-0">
                     <p className="text-2xl font-bold text-yellow-600">{u.reputation?.toLocaleString()}</p>
-                    <p className="text-xs text-gray-400">{u.faqCount || 0} FAQs</p>
+                    <p className="text-xs text-[var(--text-muted)]">{u.faqCount || 0} FAQs</p>
                   </div>
                 </div>
               </div>
             ))}
 
             {/* Ranked list 4+ */}
-            <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden divide-y divide-gray-100">
+            <div className="bg-[var(--card-bg)] rounded-2xl border border-[var(--border)] overflow-hidden divide-y divide-gray-100">
               {board.slice(3).map((u, idx) => {
                 const rank = idx + 4;
                 const isMe = user && (u._id === user.id || u._id === user._id);
                 return (
                   <Link key={u._id} to={`/profile/${u._id}`}
-                    className={`flex items-center gap-4 px-5 py-3.5 hover:bg-gray-50 transition-colors ${isMe ? 'bg-blue-50/50' : ''}`}>
-                    <span className="w-7 text-center font-mono text-sm font-semibold text-gray-400 flex-shrink-0">
+                    className={`flex items-center gap-4 px-5 py-3.5 hover:bg-[var(--surface)] transition-colors ${isMe ? 'bg-[var(--primary)]/10' : ''}`}>
+                    <span className="w-7 text-center font-mono text-sm font-semibold text-[var(--text-muted)] flex-shrink-0">
                       #{rank}
                     </span>
                     <img
@@ -95,13 +95,13 @@ const LeaderboardPage = () => {
                       alt={u.name} className="w-9 h-9 rounded-full object-cover flex-shrink-0"
                     />
                     <div className="flex-1 min-w-0">
-                      <p className={`text-sm font-medium truncate ${isMe ? 'text-blue-700' : 'text-gray-800'}`}>
-                        {u.name} {isMe && <span className="text-xs text-blue-400">(you)</span>}
+                      <p className={`text-sm font-medium truncate ${isMe ? 'text-[var(--primary)]' : 'text-[var(--text-h)]'}`}>
+                        {u.name} {isMe && <span className="text-xs text-[var(--primary)]">(you)</span>}
                       </p>
                       {u.badges?.length > 0 && (
                         <div className="flex items-center gap-1 mt-0.5">
                           {u.badges.slice(0, 2).map((b, bi) => (
-                            <span key={bi} className="text-[10px] px-1.5 py-0.5 bg-blue-50 text-blue-600 rounded-full">
+                            <span key={bi} className="text-[10px] px-1.5 py-0.5 bg-[var(--primary)]/10 text-[var(--primary)] rounded-full">
                               {b.name?.replace('_', ' ')}
                             </span>
                           ))}
@@ -109,8 +109,8 @@ const LeaderboardPage = () => {
                       )}
                     </div>
                     <div className="text-right flex-shrink-0">
-                      <p className="text-sm font-bold text-gray-700">{u.reputation?.toLocaleString()}</p>
-                      <p className="text-[11px] text-gray-400">{u.faqCount || 0} FAQs</p>
+                      <p className="text-sm font-bold text-[var(--text)]">{u.reputation?.toLocaleString()}</p>
+                      <p className="text-[11px] text-[var(--text-muted)]">{u.faqCount || 0} FAQs</p>
                     </div>
                   </Link>
                 );
@@ -119,8 +119,8 @@ const LeaderboardPage = () => {
 
             {/* My rank (outside top 10) */}
             {myRank && (
-              <div className="mt-4 rounded-2xl border-2 border-dashed border-blue-300 bg-blue-50/50 px-5 py-3.5 flex items-center gap-4">
-                <span className="w-7 text-center font-mono text-sm font-semibold text-blue-400 flex-shrink-0">
+              <div className="mt-4 rounded-2xl border-2 border-dashed border-[var(--primary)] bg-[var(--primary)]/10 px-5 py-3.5 flex items-center gap-4">
+                <span className="w-7 text-center font-mono text-sm font-semibold text-[var(--primary)] flex-shrink-0">
                   #{board.length + 1}+
                 </span>
                 <img
@@ -128,11 +128,11 @@ const LeaderboardPage = () => {
                   alt={myRank.name} className="w-9 h-9 rounded-full object-cover flex-shrink-0"
                 />
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-blue-700">You</p>
+                  <p className="text-sm font-medium text-[var(--primary)]">You</p>
                 </div>
                 <div className="text-right flex-shrink-0">
-                  <p className="text-sm font-bold text-blue-700">{myRank.reputation?.toLocaleString()}</p>
-                  <p className="text-[11px] text-blue-400">your score</p>
+                  <p className="text-sm font-bold text-[var(--primary)]">{myRank.reputation?.toLocaleString()}</p>
+                  <p className="text-[11px] text-[var(--primary)]">your score</p>
                 </div>
               </div>
             )}
