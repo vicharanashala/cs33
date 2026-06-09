@@ -1,211 +1,163 @@
 # FAQ Portal (cs33)
 
-A full-stack community FAQ portal built with MongoDB, Express, React, Node.js, and Socket.IO.
+A full-stack, production-minded community FAQ portal built with Node.js, Express, MongoDB, React (Vite), and Socket.IO.
 
 ## Overview
 
-This project is a crowdsourced knowledge-sharing application where users can submit and curate FAQ entries, vote on answers, comment, follow contributors, and engage with a reputation-driven moderation system.
+A crowdsourced knowledge-sharing platform where users submit FAQ entries, vote on answers, comment, follow contributors, and participate in a reputation-driven moderation system.
 
-The platform includes:
-- FAQ creation, review, and approval workflows
-- Category-based organization and tag support
-- User profiles, followers, saved FAQs, and leaderboards
-- Real-time notifications via WebSockets
-- Admin and moderator controls for content quality
-- Avatar uploads and email-based authentication flows
+This README documents the full, implemented feature set, developer commands, environment variables, and production considerations.
 
-## Key Features
+## Complete Feature List (implemented)
 
-### Core Functionality
-- Create, edit, and delete FAQ posts
-- Search FAQs by keyword, category, and tags
-- View trending FAQs
-- Save/bookmark FAQs for later
-- Browse FAQ metadata and related content
-
-### Community Interaction
-- Upvote/downvote FAQs and answers
-- Add answers and threaded comments
-- Accept the best answer for a FAQ
-- Follow/unfollow users
-- Activity feed for followed users
-- Leaderboard ranking by reputation
-
-### Moderation and Administration
-- Pending FAQ approval workflow
-- Admin approval/rejection with rejection reasons
-- Moderator queue for review
-- User management: roles, suspensions, deletion
-- Category management: CRUD operations
-- Reports workflow for spam, inappropriate, and incorrect content
-
-### Auth and User Profiles
-- User registration, login, and logout
-- Email verification and password reset
-- Profile edit with avatar, bio, and personal info
-- Role-based access control for users, moderators, and admins
-
-### Notifications and Real-Time UX
-- Socket.IO notifications for answers, comments, votes, accepts, badges, and follows
-- Read/unread notification tracking
-- Push updates to clients with live notification bell support
-
-### Reputation and Badges
-- Reputation earned from FAQ and answer activity
-- Auto-awarded badges based on user contributions
-- Badge notifications and profile badge display
-
-### Uploads and Media
-- Avatar uploads using Multer and Cloudinary
-- Profile image storage with cloud integration
+- Authentication: registration, login, logout, JWT auth, email verification, password reset
+- Social: follow/unfollow, follower/following counts, activity feed
+- Content: submit FAQs (markdown), edit own pending FAQs, delete FAQs
+- Answers & comments: threaded answers, edit/delete, accept answer flow
+- Voting: upvote/downvote for FAQs and answers, net vote counts
+- Search & discovery: keyword search, category and tag filters, trending lists, related FAQs
+- Organization: categories with slug/icon/color, tags, pinned and wiki flags
+- Moderation: pending queue, moderator views, admin approval/rejection with reasons
+- Reports: user-submitted reports for spam/inappropriate/incorrect content
+- Notifications: create/read/delete, Socket.IO real-time events for answers, comments, votes, accepts, badges, follows
+- Reputation & badges: reputation calculation, auto-awarded badges, leaderboard
+- Uploads: avatar upload with Multer and Cloudinary integration
+- Security & hygiene: helmet, express-mongo-sanitize, DOMPurify for markdown, rate limiting, CORS, input validators
+- Devops-friendly: seed script, graceful shutdown, weekly digest cron, Cloudinary and email integration
+- Testing & tooling: multiple test scripts, Playwright listed as devDependency, ESLint and Tailwind on client
 
 ## Architecture
 
-### Backend
-- `server/` contains Express routes, controllers, middleware, models, and utilities
-- MongoDB and Mongoose manage data models for User, FAQ, Category, Notification, and Report
-- JWT authentication and role-based middleware
-- Validation with `express-validator`
-- Centralized error handling and rate limiting
-- Email templates for approval, rejection, password reset, and verification
-- Optional seed script for admin user and category data
+- `server/` — Express API, controllers, middleware, Mongoose models, utilities
+- `client/` — React + Vite front-end with context providers (`AuthContext`, `SocketContext`, `ThemeContext`)
+- WebSockets — `socket.io` server and client for live notifications
+- Database — MongoDB via Mongoose, with pagination helpers
 
-### Frontend
-- `client/` is built with React and Vite
-- Context providers for authentication, theme, and Socket.IO state
-- Pages for home, FAQ list, FAQ details, submit/edit FAQ, user profile, saved FAQs, leaderboard, activity feed, admin, and moderator views
-- Markdown rendering with `react-markdown` and `remark-gfm`
-- Axios-based API client and toast notifications for user feedback
+## Notable Implementation Details
 
-## Data Models
+- Security: `helmet` for headers, `express-mongo-sanitize` and custom sanitization for Mongo query values, `express-rate-limit` for global and auth-specific throttling.
+- Markdown safety: `dompurify` + `jsdom` sanitize rendered HTML from markdown before sending to clients.
+- Email: `nodemailer` uses Ethereal in development, and SMTP configuration for production. Preview URLs logged during dev.
+- Authentication: supports Google OAuth (passport-google-oauth20) and optional SAML via `@node-saml/passport-saml`.
+- File uploads: avatar upload route with Multer and Cloudinary storage integration.
+- Background jobs: `weeklyDigest` utility scheduled in `server.js` (interval-based; consider replacing with cron in production).
 
-### User
-- name, username, email, hashed password
-- role: `user` | `moderator` | `admin`
-- avatar, bio, reputation, badges
-- following, followerCount, followingCount
-- savedFAQs, notifications
-- account state: suspended, email verified, reset tokens
+## Environment Variables
 
-### FAQ
-- question, answer (markdown), category, tags, author
-- upvotes, downvotes, viewCount, net votes
-- status: `pending` | `approved` | `rejected`
-- rejectionReason, isPinned, isWiki
-- embedded answers with votes, author, accepted state
-- answerCount, commentsCount, timestamps
+Create a `.env` in `server/` with at least the following values:
 
-### Category
-- name, slug, description
-- icon, color, faqCount
+- `PORT` (default: 5000)
+- `MONGO_URI` — MongoDB connection string
+- `JWT_SECRET` — secret for signing JWTs
+- `CLIENT_URL` — frontend origin (default: http://localhost:5173)
+- `NODE_ENV` — `development` | `production`
 
-### Notification
-- user, type, message, faqId
-- read state, createdAt
+Cloudinary
+- `CLOUDINARY_CLOUD_NAME`
+- `CLOUDINARY_API_KEY`
+- `CLOUDINARY_API_SECRET`
 
-### Report
-- faq, reporter, reason, description
-- status: `pending` | `reviewed`
+SMTP / Email (production)
+- `SMTP_HOST`
+- `SMTP_PORT`
+- `SMTP_SECURE` — 'true' or 'false'
+- `SMTP_USER`
+- `SMTP_PASS`
+- `FROM_NAME` (optional)
+- `FROM_EMAIL` (optional)
 
-## API Overview
+Optional / SSO
+- `GOOGLE_CLIENT_ID`
+- `GOOGLE_CLIENT_SECRET`
+- SAML-related envs if used (provider-specific)
 
-### Auth
-- `POST /api/auth/register`
-- `POST /api/auth/login`
-- `POST /api/auth/logout`
-- `GET /api/auth/me`
-- `POST /api/auth/forgot-password`
-- `PUT /api/auth/reset-password/:token`
-- `GET /api/auth/verify-email/:token`
+## Run & Development
 
-### Users
-- `GET /api/users/:idOrUsername`
-- `PUT /api/users/:id/profile`
-- `PUT /api/users/:id/password`
-- `POST /api/users/:id/follow`
-- `DELETE /api/users/:id/follow`
-- `POST /api/users/saved/:faqId`
-- `GET /api/users/saved`
-- `GET /api/users/feed/activity`
-- `GET /api/users/leaderboard`
-- `GET /api/users/:idOrUsername/activity`
-- `GET /api/users/:idOrUsername/answers`
+Backend (server):
 
-### FAQs
-- `GET /api/faqs`
-- `GET /api/faqs/search`
-- `GET /api/faqs/trending`
-- `GET /api/faqs/:id`
-- `GET /api/faqs/:id/meta`
-- `POST /api/faqs`
-- `PUT /api/faqs/:id`
-- `DELETE /api/faqs/:id`
-- `POST /api/faqs/:id/vote`
-- `PUT /api/faqs/:id/pin`
-- `PUT /api/faqs/:id/wiki`
-- `POST /api/faqs/:id/answers`
-- `PUT /api/faqs/:id/answers/:answerId`
-- `DELETE /api/faqs/:id/answers/:answerId`
-- `PATCH /api/faqs/:id/answers/:answerId/accept`
-- `POST /api/faqs/:id/comments`
-- `DELETE /api/faqs/:id/comments/:commentId`
-- `POST /api/faqs/:id/report`
+```bash
+cd server
+npm install
+# run in development with auto-reload
+npm run dev
+# seed initial data (admin + categories)
+npm run seed
+# start production (after build / env configured)
+npm start
+```
 
-### Admin
-- `GET /api/admin/dashboard`
-- `GET /api/admin/stats`
-- `GET /api/admin/users`
-- `PUT /api/admin/users/:id/role`
-- `PUT /api/admin/users/:id/suspend`
-- `DELETE /api/admin/users/:id`
-- `GET /api/admin/faqs`
-- `PUT /api/admin/faqs/:id/status`
-- `PATCH /api/admin/faqs/:id/approve`
-- `PATCH /api/admin/faqs/:id/reject`
+Frontend (client):
 
-### Moderator
-- `GET /api/mod/queue`
-- `GET /api/mod/stats`
+```bash
+cd client
+npm install
+# dev server (Vite)
+npm run dev
+# build for production
+npm run build
+# preview the production build
+npm run preview
+```
 
-### Categories
-- `GET /api/categories`
-- `GET /api/categories/:idOrSlug`
-- `POST /api/categories`
-- `PUT /api/categories/:id`
-- `DELETE /api/categories/:id`
+Root-level quick check (Playwright devDep exists):
 
-### Notifications
-- `GET /api/notifications`
-- `PATCH /api/notifications/read/all`
-- `PATCH /api/notifications/:id/read`
-- `DELETE /api/notifications/:id`
+```bash
+# optional: run Playwright tests if configured
+# Playwright is listed in root package.json devDependencies
+```
 
-### Reports
-- `GET /api/reports`
-- `PUT /api/reports/:id`
+## Scripts & Useful Tools
 
-### Uploads
-- `POST /api/upload/avatar`
+- `server` scripts: `dev` (nodemon), `start` (node), `seed` (seed DB)
+- `client` scripts: `dev`, `build`, `preview`, `lint` (ESLint)
+- Utility scripts in repo: PowerShell helpers (`restart-server.ps1`, `full-flow-test.ps1`, `fix_getone.ps1`) and various test scripts under the root for API and integration checks.
 
-## Installation
+## API Endpoints
 
-### Backend
-1. `cd server`
-2. `npm install`
-3. Create `.env` with MongoDB URI, JWT secret, Cloudinary keys, and mail config
-4. `npm start`
+(Full list present in the codebase; highlights below)
 
-### Frontend
-1. `cd client`
-2. `npm install`
-3. Create `.env` with `VITE_API_URL=http://localhost:5000`
-4. `npm run dev`
+- Auth: `/api/auth/*` (register/login/logout/me/forgot/reset/verify)
+- FAQs: `/api/faqs/*` (search, trending, CRUD, answers, votes, comments, reports)
+- Users: `/api/users/*` (profile, follow, saved, feed, leaderboard)
+- Admin: `/api/admin/*` (dashboard, stats, users, faqs)
+- Mods: `/api/mod/*` (queue, stats)
+- Notifications: `/api/notifications/*`
+- Uploads: `/api/upload/avatar`
 
-## Project Status
+Refer to the routes directory for the complete, authoritative list.
 
-- Fully implemented server and client
-- Feature-complete FAQ portal with user contributions, moderation, real-time updates, and reputation systems
+## Data Models (summary)
 
-## Notes
+See `server/models` for full schemas. Key models:
+- `User` — profile, auth, role, badges, following, notifications
+- `FAQ` — question/answer content, answers subdocuments, votes, status, metadata
+- `Category` — site taxonomy
+- `Notification` — user notifications
+- `Report` — content reports
 
-This repository includes both the server and client apps under separate folders. The backend exposes a REST API used by the React frontend, and Socket.IO powers live notification updates.
+## Testing
+
+- The repo contains several test scripts in the project root (e.g., `test-*.js`, `test-*.ps1`). Backend `server/package.json` currently has a placeholder `test` script; adapt to your chosen test runner (Jest/Mocha) if needed.
+- Playwright is included as a devDependency at the root for browser or E2E tests.
+
+## Production Notes & Recommendations
+
+- Use a process manager (PM2/systemd) for the `server` process.
+- Replace interval-based `weeklyDigest` with a cron job or scheduled task runner in production.
+- Enforce HTTPS and secure cookie/session settings if adding session auth.
+- Configure rate limits and IP-based protections on public endpoints behind a load balancer.
+- Offload uploads to Cloudinary and enable secure presets.
+- Rotate `JWT_SECRET` and SMTP credentials securely in your environment.
+
+## Contributing
+
+- Run `npm run lint` in `client/` to check frontend lint issues.
+- Use `server/utils/seed.js` to seed initial admin and categories in development.
+
+## License
+
+This repository includes a `LICENSE` file at the project root.
+
+---
+
+For any missing detail you'd like added to the README, tell me which area (e.g., env vars, CI, tests, deployment) and I'll expand that section and commit the change.
